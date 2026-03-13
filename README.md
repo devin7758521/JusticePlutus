@@ -5,6 +5,7 @@
 ## 文档
 
 - [快速开始与分层架构](docs/QUICKSTART_ARCHITECTURE.md)
+- [API 集成与 OpenClaw 交接说明](docs/API_INTEGRATION_GUIDE.md)
 
 ## 特性
 

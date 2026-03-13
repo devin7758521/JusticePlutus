@@ -13,6 +13,10 @@
 - 使用 `Tavily` 做搜索增强
 - 结果由 `Telegram Bot` 自动推送到群
 
+配套文档：
+
+- [API 集成与 OpenClaw 交接说明](API_INTEGRATION_GUIDE.md)
+
 ## 1. 项目定位
 
 `JusticePlutus` 是一个面向 A 股自选股的自动化分析流水线。
