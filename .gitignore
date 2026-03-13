@@ -10,5 +10,9 @@ data/
 logs/
 reports/
 
+!src/data/
+!src/data/__init__.py
+!src/data/stock_mapping.py
+
 .DS_Store
 Thumbs.db
