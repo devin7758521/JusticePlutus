@@ -69,3 +69,4 @@ def test_generate_single_stock_report_matches_jarvis_style():
     assert "🚨 风险警报" in content
     assert "✨ 利好催化" in content
     assert "📢 最新动态" in content
+    assert "CST" in content

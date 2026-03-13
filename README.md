@@ -33,6 +33,45 @@ python -m daily_stock_pipeline run --no-notify
 - 也可以在触发时传入 `stocks` 临时覆盖
 - 执行结束后会上传 `reports/` 和 `logs/` artifact
 
+## 修改股票与触发方式
+
+### 修改默认股票
+
+修改 GitHub 仓库 Variables 中的 `STOCK_LIST`。
+
+示例：
+
+```text
+600519,000001,300750
+```
+
+### 临时覆盖本次运行股票
+
+在 `Run workflow` 面板里填写 `stocks`，会临时覆盖默认 `STOCK_LIST`，不会改仓库变量。
+
+### 手动触发
+
+进入 `.github/workflows/daily_analysis.yml` 对应的 Actions 页面，点击 `Run workflow`。
+
+### 定时触发
+
+当前默认只启用 `workflow_dispatch`。
+
+如果要改成 GitHub Actions 定时运行，可以在 workflow 的 `on:` 下增加：
+
+```yaml
+schedule:
+  - cron: "0 10 * * 1-5"
+```
+
+这个例子表示工作日北京时间 18:00 执行。
+
+如果要在本地机器定时运行，可以使用 Windows 任务计划程序定时执行：
+
+```powershell
+python -m daily_stock_pipeline run
+```
+
 ## 目录结构
 
 ```text

@@ -8,10 +8,10 @@ Server酱3 发送提醒服务
 import logging
 from typing import Optional
 import requests
-from datetime import datetime
 import re
 
 from src.config import Config
+from src.time_utils import cn_now
 
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ class Serverchan3Sender:
 
         # 处理消息标题
         if title is None:
-            date_str = datetime.now().strftime('%Y-%m-%d')
+            date_str = cn_now().strftime('%Y-%m-%d')
             title = f"📈 股票分析报告 - {date_str}"
 
         try:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime
 from pathlib import Path
 from typing import Sequence
 
@@ -14,6 +13,7 @@ from .runtime import (
     resolve_run_output_dir,
     write_json_file,
 )
+from src.time_utils import cn_now
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -50,7 +50,7 @@ def run_command(args) -> int:
         raise SystemExit("未提供股票列表，请设置 STOCK_LIST 或通过 --stocks 传入。")
 
     output_dir = resolve_run_output_dir(project_root, args.output_dir)
-    started_at = datetime.now()
+    started_at = cn_now()
 
     config.max_workers = args.workers or 1
     config.single_stock_notify = True
@@ -74,7 +74,7 @@ def run_command(args) -> int:
 
     result_payloads = [result.to_dict() for result in results]
     summary_json = {
-        "generated_at": datetime.now().isoformat(),
+        "generated_at": cn_now().isoformat(),
         "stocks": result_payloads,
     }
     write_json_file(output_dir / "summary.json", summary_json)
@@ -92,7 +92,7 @@ def run_command(args) -> int:
         notify_enabled=not args.no_notify,
         workers=config.max_workers,
         started_at=started_at,
-        finished_at=datetime.now(),
+        finished_at=cn_now(),
     )
     write_json_file(output_dir / "run_meta.json", run_meta)
     return 0 if (args.dry_run or len(success_codes) > 0) else 1

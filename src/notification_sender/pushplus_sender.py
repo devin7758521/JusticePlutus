@@ -8,11 +8,11 @@ PushPlus 发送提醒服务
 import logging
 import time
 from typing import Optional
-from datetime import datetime
 import requests
 
 from src.config import Config
 from src.formatters import chunk_content_by_max_bytes
+from src.time_utils import cn_now
 
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ class PushplusSender:
         api_url = "http://www.pushplus.plus/send"
 
         if title is None:
-            date_str = datetime.now().strftime('%Y-%m-%d')
+            date_str = cn_now().strftime('%Y-%m-%d')
             title = f"📈 股票分析报告 - {date_str}"
 
         try:

@@ -7,6 +7,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Sequence
 
+from src.time_utils import cn_now
+
 
 def normalize_stock_codes(raw_codes: Iterable[str]) -> list[str]:
     """Normalize, deduplicate, and preserve the original stock order."""
@@ -26,7 +28,7 @@ def resolve_run_output_dir(project_root: Path, output_dir: str | None = None, no
     if output_dir:
         destination = Path(output_dir)
     else:
-        current = now or datetime.now()
+        current = now or cn_now()
         destination = project_root / "reports" / current.strftime("%Y-%m-%d")
     destination.mkdir(parents=True, exist_ok=True)
     return destination

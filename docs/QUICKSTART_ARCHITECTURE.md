@@ -33,6 +33,49 @@
 - Web 后台交互操作流
 - 多通知渠道同时联调
 
+## 当前改股票与触发方式
+
+### 修改默认股票
+
+修改仓库 Variables 中的 `STOCK_LIST`。
+
+示例：
+
+```text
+600519,000001,300750
+```
+
+### 临时覆盖股票
+
+在 `workflow_dispatch` 运行面板里填写 `stocks`，会覆盖默认 `STOCK_LIST`，但不会改仓库变量。
+
+### 手动触发
+
+打开：
+
+- `https://github.com/Etherstrings/JusticePlutus/actions/workflows/daily_analysis.yml`
+
+然后点击：
+
+- `Run workflow`
+
+### 定时运行
+
+当前 workflow 默认只有手动触发。
+
+如果要在 GitHub Actions 上改成定时运行，可以在 `on:` 下增加：
+
+```yaml
+schedule:
+  - cron: "0 10 * * 1-5"
+```
+
+如果要在本地定时运行，则使用 Windows Task Scheduler 定时执行：
+
+```powershell
+python -m daily_stock_pipeline run
+```
+
 ## 2. 5 分钟快速开始
 
 ### 2.1 GitHub Actions 需要的配置

@@ -7,7 +7,6 @@ Email 发送提醒服务
 """
 import logging
 from typing import Optional, List
-from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
@@ -17,6 +16,7 @@ import smtplib
 
 from src.config import Config
 from src.formatters import markdown_to_html_document
+from src.time_utils import cn_now
 
 
 logger = logging.getLogger(__name__)
@@ -130,7 +130,7 @@ class EmailSender:
         try:
             # 生成主题
             if subject is None:
-                date_str = datetime.now().strftime('%Y-%m-%d')
+                date_str = cn_now().strftime('%Y-%m-%d')
                 subject = f"📈 股票智能分析报告 - {date_str}"
             
             # 将 Markdown 转换为简单 HTML
@@ -200,7 +200,7 @@ class EmailSender:
         password = self._email_config['password']
         receivers = receivers or self._email_config['receivers']
         try:
-            date_str = datetime.now().strftime('%Y-%m-%d')
+            date_str = cn_now().strftime('%Y-%m-%d')
             subject = f"📈 股票智能分析报告 - {date_str}"
             msg = MIMEMultipart('related')
             msg['Subject'] = Header(subject, 'utf-8')
