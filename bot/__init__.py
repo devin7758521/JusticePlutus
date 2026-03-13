@@ -32,13 +32,10 @@
 """
 
 from bot.models import BotMessage, BotResponse, ChatType, WebhookResponse
-from bot.dispatcher import CommandDispatcher, get_dispatcher
 
 __all__ = [
     'BotMessage',
     'BotResponse',
     'ChatType',
     'WebhookResponse',
-    'CommandDispatcher',
-    'get_dispatcher',
 ]

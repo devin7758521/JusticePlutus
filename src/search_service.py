@@ -345,7 +345,7 @@ class SerpAPISearchProvider(BaseSearchProvider):
     - 免费版每月 100 次请求
     - 返回真实的搜索结果
     
-    文档：https://serpapi.com/baidu-search-api?utm_source=github_daily_stock_analysis
+    文档：https://serpapi.com/search-api
     """
     
     def __init__(self, api_keys: List[str]):

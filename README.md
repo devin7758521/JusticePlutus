@@ -1,6 +1,6 @@
 # JusticePlutus
 
-从 `ZhuLinsen/daily_stock_analysis` 提取出来的独立项目，只保留“自选股分析 + 单股完成即推送”这条流水线。
+用于自选股分析与单股即时推送的独立项目。
 
 ## 特性
 

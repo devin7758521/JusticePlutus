@@ -1323,7 +1323,8 @@ class NotificationService(
         Returns:
             Markdown 格式的单股报告
         """
-        report_date = datetime.now().strftime('%Y-%m-%d %H:%M')
+        report_date = datetime.now().strftime('%Y-%m-%d')
+        generation_time = datetime.now().strftime('%H:%M')
         signal_text, signal_emoji, _ = self._get_signal_level(result)
         dashboard = result.dashboard if hasattr(result, 'dashboard') and result.dashboard else {}
         core = dashboard.get('core_conclusion', {}) if dashboard else {}
@@ -1334,96 +1335,61 @@ class NotificationService(
         raw_name = result.name if result.name and not result.name.startswith('股票') else f'股票{result.code}'
         stock_name = self._escape_md(raw_name)
         
+        buy_count = 1 if getattr(result, 'decision_type', '') == 'buy' else 0
+        sell_count = 1 if getattr(result, 'decision_type', '') == 'sell' else 0
+        hold_count = 1 if getattr(result, 'decision_type', '') in ('hold', '') else 0
+
         lines = [
-            f"## {signal_emoji} {stock_name} ({result.code})",
+            "# Jarvis Daily Investment Advice",
             "",
-            f"> {report_date} | 评分: **{result.sentiment_score}** | {result.trend_prediction}",
+            f"🎯 {report_date} 决策仪表盘",
+            f"共分析1只股票 | 🟢买入:{buy_count} 🟡观望:{hold_count} 🔴卖出:{sell_count}",
+            "",
+            "📊 分析结果摘要",
+            f"{signal_emoji} {stock_name}({result.code}): {result.operation_advice} | 评分 {result.sentiment_score} | {result.trend_prediction}",
+            "",
+            f"{signal_emoji} {stock_name} ({result.code})",
             "",
         ]
+        if result.analysis_summary and result.analysis_summary != core.get('one_sentence', ''):
+            lines.append(f"📌 核心结论: {core.get('one_sentence', result.analysis_summary) if core else result.analysis_summary}")
+            lines.append("")
 
-        self._append_market_snapshot(lines, result)
-        
-        # 核心决策（一句话）
-        one_sentence = core.get('one_sentence', result.analysis_summary) if core else result.analysis_summary
-        if one_sentence:
-            lines.extend([
-                "### 📌 核心结论",
-                "",
-                f"**{signal_text}**: {one_sentence}",
-                "",
-            ])
-        
-        # 重要信息（舆情+基本面）
-        info_added = False
+        lines.append("📰 重要信息速览")
         if intel:
             if intel.get('earnings_outlook'):
-                if not info_added:
-                    lines.append("### 📰 重要信息")
-                    lines.append("")
-                    info_added = True
-                lines.append(f"📊 **业绩预期**: {intel['earnings_outlook'][:100]}")
-            
+                lines.append(f"📊 业绩预期: {intel['earnings_outlook'][:120]}")
             if intel.get('sentiment_summary'):
-                if not info_added:
-                    lines.append("### 📰 重要信息")
-                    lines.append("")
-                    info_added = True
-                lines.append(f"💭 **舆情情绪**: {intel['sentiment_summary'][:80]}")
-            
-            # 风险警报
+                lines.append(f"💭 舆情情绪: {intel['sentiment_summary'][:120]}")
+            lines.append("")
             risks = intel.get('risk_alerts', [])
             if risks:
-                if not info_added:
-                    lines.append("### 📰 重要信息")
-                    lines.append("")
-                    info_added = True
+                lines.append("🚨 风险警报:")
                 lines.append("")
-                lines.append("🚨 **风险警报**:")
-                for risk in risks[:3]:
-                    lines.append(f"- {risk[:60]}")
-            
-            # 利好催化
+                for index, risk in enumerate(risks[:3], start=1):
+                    lines.append(f"风险点{index}：{risk}")
+            lines.append("")
             catalysts = intel.get('positive_catalysts', [])
             if catalysts:
+                lines.append("✨ 利好催化:")
                 lines.append("")
-                lines.append("✨ **利好催化**:")
-                for cat in catalysts[:3]:
-                    lines.append(f"- {cat[:60]}")
-        
-        if info_added:
-            lines.append("")
-        
-        # 狙击点位
-        sniper = battle.get('sniper_points', {}) if battle else {}
-        if sniper:
-            lines.extend([
-                "### 🎯 操作点位",
-                "",
-                "| 买点 | 止损 | 目标 |",
-                "|------|------|------|",
-            ])
-            ideal_buy = sniper.get('ideal_buy', '-')
-            stop_loss = sniper.get('stop_loss', '-')
-            take_profit = sniper.get('take_profit', '-')
-            lines.append(f"| {ideal_buy} | {stop_loss} | {take_profit} |")
-            lines.append("")
-        
-        # 持仓建议
-        pos_advice = core.get('position_advice', {}) if core else {}
-        if pos_advice:
-            lines.extend([
-                "### 💼 持仓建议",
-                "",
-                f"- 🆕 **空仓者**: {pos_advice.get('no_position', result.operation_advice)}",
-                f"- 💼 **持仓者**: {pos_advice.get('has_position', '继续持有')}",
-                "",
-            ])
-        
-        lines.append("---")
+                for index, cat in enumerate(catalysts[:3], start=1):
+                    lines.append(f"利好{index}：{cat}")
+            latest_news = intel.get('latest_news')
+            if latest_news:
+                lines.append(f"📢 最新动态: {latest_news}")
+        else:
+            lines.append("暂无搜索增强结果，当前主要基于技术面和行情数据。")
+
+        lines.extend([
+            "",
+            "---",
+            f"生成时间: {generation_time}",
+        ])
+
         model_used = normalize_model_used(getattr(result, "model_used", None))
         if model_used:
-            lines.append(f"*分析模型: {model_used}*")
-        lines.append("*AI生成，仅供参考，不构成投资建议*")
+            lines.append(f"分析模型: {model_used}")
 
         return "\n".join(lines)
 
