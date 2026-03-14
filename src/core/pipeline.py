@@ -1118,6 +1118,15 @@ class StockAnalysisPipeline:
                 # 单股推送模式：只保存汇总报告，不再重复推送
                 logger.info("单股推送模式：跳过汇总推送，仅保存报告到本地")
                 self._send_notifications(results, report_type, skip_push=True)
+                if send_notification and self.notifier.is_available():
+                    try:
+                        summary_content = self.notifier.generate_summary_overview(results)
+                        if self.notifier.send(summary_content):
+                            logger.info("单股推送模式：批次总览推送成功")
+                        else:
+                            logger.warning("单股推送模式：批次总览推送失败")
+                    except Exception as exc:
+                        logger.error("单股推送模式：批次总览推送异常: %s", exc)
             elif not send_notification:
                 logger.info("已禁用通知：仅保存汇总报告到本地")
                 self._send_notifications(results, report_type, skip_push=True)

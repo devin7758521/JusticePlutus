@@ -1312,6 +1312,46 @@ class NotificationService(
         lines.append(f"*{cn_now().strftime('%Y-%m-%d %H:%M:%S %Z')}*")
         return "\n".join(lines)
 
+    def generate_summary_overview(
+        self,
+        results: List[AnalysisResult],
+        report_date: Optional[str] = None,
+    ) -> str:
+        """
+        Generate a single overview message for the whole batch.
+        """
+        if report_date is None:
+            report_date = cn_now().strftime('%Y-%m-%d')
+
+        sorted_results = sorted(results, key=lambda item: item.sentiment_score, reverse=True)
+        buy_count = sum(1 for item in results if getattr(item, 'decision_type', '') == 'buy')
+        sell_count = sum(1 for item in results if getattr(item, 'decision_type', '') == 'sell')
+        hold_count = sum(1 for item in results if getattr(item, 'decision_type', '') in ('hold', ''))
+
+        lines = [
+            "# Jarvis Daily Investment Advice",
+            "",
+            f"🎯 {report_date} 决策仪表盘",
+            f"共分析{len(results)}只股票 | 🟢买入:{buy_count} 🟡观望:{hold_count} 🔴卖出:{sell_count}",
+            "",
+            "📊 分析结果摘要",
+        ]
+
+        for result in sorted_results:
+            _, signal_emoji, _ = self._get_signal_level(result)
+            stock_name = self._escape_md(result.name if result.name and not result.name.startswith('股票') else f'股票{result.code}')
+            lines.append(
+                f"{signal_emoji} {stock_name}({result.code}): {result.operation_advice} | 评分 {result.sentiment_score} | {result.trend_prediction}"
+            )
+
+        lines.extend(
+            [
+                "",
+                f"生成时间: {cn_now().strftime('%H:%M %Z')}",
+            ]
+        )
+        return "\n".join(lines)
+
     def generate_single_stock_report(self, result: AnalysisResult) -> str:
         """
         生成单只股票的分析报告（用于单股推送模式 #55）
@@ -1324,31 +1364,17 @@ class NotificationService(
         Returns:
             Markdown 格式的单股报告
         """
-        report_date = cn_now().strftime('%Y-%m-%d')
         generation_time = cn_now().strftime('%H:%M %Z')
         signal_text, signal_emoji, _ = self._get_signal_level(result)
         dashboard = result.dashboard if hasattr(result, 'dashboard') and result.dashboard else {}
         core = dashboard.get('core_conclusion', {}) if dashboard else {}
-        battle = dashboard.get('battle_plan', {}) if dashboard else {}
         intel = dashboard.get('intelligence', {}) if dashboard else {}
         
         # 股票名称（转义 *ST 等特殊字符）
         raw_name = result.name if result.name and not result.name.startswith('股票') else f'股票{result.code}'
         stock_name = self._escape_md(raw_name)
         
-        buy_count = 1 if getattr(result, 'decision_type', '') == 'buy' else 0
-        sell_count = 1 if getattr(result, 'decision_type', '') == 'sell' else 0
-        hold_count = 1 if getattr(result, 'decision_type', '') in ('hold', '') else 0
-
         lines = [
-            "# Jarvis Daily Investment Advice",
-            "",
-            f"🎯 {report_date} 决策仪表盘",
-            f"共分析1只股票 | 🟢买入:{buy_count} 🟡观望:{hold_count} 🔴卖出:{sell_count}",
-            "",
-            "📊 分析结果摘要",
-            f"{signal_emoji} {stock_name}({result.code}): {result.operation_advice} | 评分 {result.sentiment_score} | {result.trend_prediction}",
-            "",
             f"{signal_emoji} {stock_name} ({result.code})",
             "",
         ]

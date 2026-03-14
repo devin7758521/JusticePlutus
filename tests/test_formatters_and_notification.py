@@ -36,7 +36,7 @@ def test_markdown_to_plain_text_removes_markup():
     assert "项目" in text
 
 
-def test_generate_single_stock_report_matches_jarvis_style():
+def test_generate_single_stock_report_is_detail_only():
     notifier = NotificationService()
     result = AnalysisResult(
         code="600519",
@@ -61,12 +61,41 @@ def test_generate_single_stock_report_matches_jarvis_style():
     )
 
     content = notifier.generate_single_stock_report(result)
-    assert "Jarvis Daily Investment Advice" in content
-    assert "🎯" in content
-    assert "共分析1只股票" in content
-    assert "📊 分析结果摘要" in content
+    assert "Jarvis Daily Investment Advice" not in content
+    assert "共分析1只股票" not in content
+    assert "📊 分析结果摘要" not in content
+    assert "⚪ 贵州茅台 (600519)" in content
     assert "📰 重要信息速览" in content
     assert "🚨 风险警报" in content
     assert "✨ 利好催化" in content
     assert "📢 最新动态" in content
     assert "CST" in content
+
+
+def test_generate_summary_overview_only_contains_batch_header():
+    notifier = NotificationService()
+    results = [
+        AnalysisResult(
+            code="600036",
+            name="招商银行",
+            sentiment_score=88,
+            trend_prediction="强烈看多",
+            operation_advice="买入",
+            decision_type="buy",
+        ),
+        AnalysisResult(
+            code="600519",
+            name="贵州茅台",
+            sentiment_score=45,
+            trend_prediction="看空",
+            operation_advice="观望",
+            decision_type="hold",
+        ),
+    ]
+
+    content = notifier.generate_summary_overview(results)
+    assert "Jarvis Daily Investment Advice" in content
+    assert "🎯" in content
+    assert "📊 分析结果摘要" in content
+    assert "招商银行(600036): 买入 | 评分 88 | 强烈看多" in content
+    assert "贵州茅台(600519): 观望 | 评分 45 | 看空" in content
