@@ -5,13 +5,13 @@
 - 第一次接手项目，希望 5 分钟内知道它怎么跑起来
 - 需要在分享、演示、汇报时，把输入、路由、输出和回退机制讲清楚
 
-当前已经验证跑通的首个可用版本路径是：
+当前已跑通的主路径能力是：
 
-- 手动触发 `GitHub Actions`
-- 分析 `STOCK_LIST`
+- 可通过本地或 GitHub Actions 触发
+- 分析 `STOCK_LIST`（支持 `stocks` / `--stocks` 覆盖）
 - 使用 `AIHubMix OpenAI-compatible API + Gemini 模型`
 - 使用 `Bocha + Tavily + SerpAPI` 做搜索增强
-- 结果由 `Telegram Bot` 自动推送到群
+- 结果可推送到 `Telegram Bot`（其它通道可扩展）
 
 配套文档：
 
@@ -65,20 +65,26 @@
 
 ### 定时运行
 
-当前 workflow 默认只有手动触发。
+可以按需选择本地定时或 GitHub 定时。
 
-如果要在 GitHub Actions 上改成定时运行，可以在 `on:` 下增加：
+如果要在 GitHub Actions 上启用定时，在 workflow 的 `on:` 下增加：
 
 ```yaml
 schedule:
-  - cron: "0 10 * * 1-5"
+  - cron: "35 1 * * 1-5" # UTC，示例为工作日 09:35 CST
 ```
 
-如果要在本地定时运行，则使用 Windows Task Scheduler 定时执行：
+本地定时触发命令统一为：
 
-```powershell
+```bash
 python -m justice_plutus run
 ```
+
+本地调度器可任选：
+
+- macOS：`launchd`
+- Linux：`cron`
+- Windows：Task Scheduler
 
 ## 2. 5 分钟快速开始
 
