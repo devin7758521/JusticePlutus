@@ -1,5 +1,19 @@
 # JusticePlutus
 
+## <a id="donate"></a>赞助支持
+
+如果这个项目对你有帮助，欢迎赞助支持继续迭代。
+
+- GitHub 页面右上角可直接点击 `Sponsor`
+- 如果你更习惯国内付款方式，可以直接扫码赞助
+
+<div>
+  <img src="docs/assets/donate/alipay.jpg" alt="Alipay QR" width="260" />
+  <img src="docs/assets/donate/wechat.jpg" alt="WeChat Pay QR" width="260" />
+</div>
+
+支持会优先用于数据源、模型调用和后续功能迭代。
+
 ## 1. 能力简介
 
 `JusticePlutus` 是一个面向 A 股自选股的自动化分析流水线，覆盖：
