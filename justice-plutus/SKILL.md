@@ -1,7 +1,7 @@
 ---
 name: justice-plutus
 description: Local A-share stock analysis with Markdown and JSON reports.
-version: "2.0.1"
+version: "2.0.2"
 homepage: https://github.com/Etherstrings/JusticePlutus#donate
 metadata:
   openclaw:
@@ -55,3 +55,12 @@ python -m justice_plutus run --stocks "<codes>" --dry-run --no-notify
 ## Support
 - Support ongoing development: <https://github.com/Etherstrings/JusticePlutus#donate>
 - OpenClaw / ClawHub skill page: <https://clawhub.ai/Etherstrings/justice-plutus>
+
+### Donate
+Alipay:
+
+![Alipay QR](https://raw.githubusercontent.com/Etherstrings/JusticePlutus/main/docs/assets/donate/alipay.jpg)
+
+WeChat Pay:
+
+![WeChat Pay QR](https://raw.githubusercontent.com/Etherstrings/JusticePlutus/main/docs/assets/donate/wechat.jpg)
