@@ -31,6 +31,8 @@
 - [功能架构说明](docs/FUNCTION_ARCHITECTURE.md)
 - [快速开始与分层架构](docs/QUICKSTART_ARCHITECTURE.md)
 - [API 集成说明](docs/API_INTEGRATION_GUIDE.md)
+- [合并说明：Feishu Workflow](docs/merge_notes/2026-03-30-feishu-workflow-merge.md)
+- [合并说明：iFinD Enhancement](docs/merge_notes/2026-03-30-ifind-enhancement-merge.md)
 - [OpenClaw / ClawHub Skill 页面](https://clawhub.ai/Etherstrings/justice-plutus)
 
 ---
