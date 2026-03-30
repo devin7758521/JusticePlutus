@@ -127,11 +127,31 @@
   - `WENCAI_COOKIE`（建议）
   - `HSCLOUD_AUTH_TOKEN` 或 `HSCLOUD_APP_KEY + HSCLOUD_APP_SECRET`（可选优先源）
 - 搜索增强：`BOCHA_API_KEYS`、`TAVILY_API_KEYS`、`SERPAPI_API_KEYS`
+- iFinD 基本面增强（可选，默认关闭）：
+  - `IFIND_REFRESH_TOKEN`
+  - `ENABLE_IFIND=true`
+  - `ENABLE_IFIND_ANALYSIS_ENHANCEMENT=true`
+  - 建议本地通过 `./scripts/run_with_overlay_env.sh` 启动，让 `.env.local` 叠加在现有 `.env` 之上
 
 ### 6.3 通知（按通道）
 
 - Telegram：`TELEGRAM_BOT_TOKEN`、`TELEGRAM_CHAT_ID`
+- 飞书群机器人：`FEISHU_WEBHOOK_URL`
 - 其它通道：见 [`.env.example`](.env.example)
+
+飞书机器人最简配置示例：
+
+```bash
+FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/your-webhook-token
+FEISHU_MAX_BYTES=20000
+WEBHOOK_VERIFY_SSL=true
+```
+
+说明：
+
+- 这里使用的是飞书群里的“自定义机器人 Webhook”，不是飞书开放平台应用机器人
+- JusticePlutus 会优先发送飞书卡片消息，失败时自动回退为普通文本
+- 单条消息过长时会自动拆分多条发送，无需额外配置
 
 ---
 
@@ -141,6 +161,12 @@
 
 ```bash
 python -m justice_plutus run --stocks 000001,600519 --no-notify
+```
+
+如果本地把 iFinD token 放在 `.env.local`，推荐改用：
+
+```bash
+./scripts/run_with_overlay_env.sh --stocks 000001,600519 --no-notify
 ```
 
 ### 7.2 本地定时（任选）
@@ -171,8 +197,10 @@ python -m justice_plutus run
 本地验证：
 
 ```bash
-python -m justice_plutus run --stocks 000001,600519 --no-notify
+python -m justice_plutus run --stocks 000001,600519 --workers 1
 ```
+
+如果只验证飞书机器人，确保 `.env` 至少配置了 `FEISHU_WEBHOOK_URL`，且未传 `--no-notify`。
 
 远程验证：
 
