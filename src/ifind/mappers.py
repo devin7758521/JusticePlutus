@@ -101,6 +101,8 @@ def map_valuation_pack(stock_code: str, payload: Dict[str, Any]) -> Optional[Val
     pb, pb_date = _find_value(parsed, "市净率(pb)")
     total_mv, total_mv_date = _find_value(parsed, "总市值")
     circ_mv, circ_mv_date = _find_value(parsed, "流通市值")
+    if circ_mv is None:
+        circ_mv, circ_mv_date = _find_value(parsed, "市值(不含限售股)")
 
     return ValuationPack(
         stock_code=stock_code,
