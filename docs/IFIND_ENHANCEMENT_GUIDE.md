@@ -66,7 +66,7 @@
 - 初始化数据层时，会把共享的 iFinD service 包装成 TongHuaShun-first fetcher
 - 日线已接入 iFinD 官方 `cmd_history_quotation`
 - 实时已接入 iFinD 官方 `real_time_quotation`
-- 当 `real_time_quotation` 缺估值字段时，会优先尝试用“同日 iFinD 估值包”补齐 `PE/PB/总市值/流通市值`
+- 当 `real_time_quotation` 缺市场字段时，会优先尝试用“同日 iFinD 市场指标包”补齐 `量比/换手率/PE/PB/总市值/流通市值`
 - 如果字段缺失、无权限或请求失败，则立即回退到现有日线 / 实时链路
 
 ### 4. 增强了 LLM Prompt

@@ -65,7 +65,7 @@
 | 模块 | 主要来源 | 说明 |
 |------|----------|------|
 | 历史日线 | TongHuaShun(iFinD `cmd_history_quotation`) -> Tushare, Efinance, Akshare, Pytdx, Baostock, YFinance | 用于 MA/趋势与历史走势 |
-| 实时行情 | TongHuaShun(iFinD `real_time_quotation`) -> 同日 iFinD 估值补齐 -> `REALTIME_SOURCE_PRIORITY` 指定顺序补缺字段 | 获取价格、量比、换手率等 |
+| 实时行情 | TongHuaShun(iFinD `real_time_quotation`) -> 同日 iFinD 市场指标补齐 -> `REALTIME_SOURCE_PRIORITY` 指定顺序补缺字段 | 获取价格、量比、换手率等 |
 | 筹码分布 | HSCloud, Wencai, Akshare, Tushare, Efinance | 用于筹码结构分析 |
 | 搜索增强 | Bocha, Tavily, SerpAPI | 保持开放搜索混合源，用于风险、利好、业绩预期、行业信息 |
 | LLM 分析 | AIHubMix(OpenAI-compatible), OpenAI, Gemini, Anthropic | 生成结构化决策仪表盘 |
@@ -143,7 +143,7 @@
 - 结构化专业数据优先走同花顺
 - 开放搜索继续保持混合源
 - 当前已接入 iFinD 官方日线与实时行情接口，账号可用时会优先使用；字段缺失或接口失败时自动回退到现有链路
-- 当官方实时行情缺少 `PE/PB/总市值/流通市值` 等估值字段时，如果 iFinD 估值包日期为当天，则会优先用同日估值补齐；否则继续保持现有补缺链路
+- 当官方实时行情缺少 `量比/换手率/PE/PB/总市值/流通市值` 等字段时，如果 iFinD 同日市场指标可用，则会优先补齐；否则继续保持现有补缺链路
 
 行为原则：
 

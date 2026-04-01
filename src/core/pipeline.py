@@ -481,10 +481,13 @@ class StockAnalysisPipeline:
         if not isinstance(realtime, dict) or not isinstance(valuation, dict):
             return
 
-        if valuation.get("as_of_date") != date.today().isoformat():
+        reference_date = context.get("date") or date.today().isoformat()
+        if valuation.get("as_of_date") != reference_date:
             return
 
         for realtime_key, valuation_key in (
+            ("volume_ratio", "volume_ratio"),
+            ("turnover_rate", "turnover_rate"),
             ("pe_ratio", "pe_ttm"),
             ("pb_ratio", "pb"),
             ("total_mv", "total_market_value"),
@@ -492,6 +495,10 @@ class StockAnalysisPipeline:
         ):
             if realtime.get(realtime_key) is None and valuation.get(valuation_key) is not None:
                 realtime[realtime_key] = valuation[valuation_key]
+
+        volume_ratio = realtime.get("volume_ratio")
+        if volume_ratio is not None:
+            realtime["volume_ratio_desc"] = self._describe_volume_ratio(volume_ratio)
 
     def _enhance_context(
         self,

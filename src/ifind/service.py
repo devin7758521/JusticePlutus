@@ -19,7 +19,7 @@ class IFindService:
         "{target} 营业总收入 归属于母公司所有者的净利润 扣除非经常性损益后的净利润 "
         "销售毛利率 销售净利率 净资产收益率roe 资产负债率 经营活动产生的现金流量净额 存货"
     )
-    VALUATION_QUERY = "{target} 市盈率 市净率 总市值 流通市值"
+    VALUATION_QUERY = "{target} 量比 换手率 市盈率 市净率 总市值 流通市值"
     FORECAST_QUERY = "{target} 预测净利润平均值 预测主营业务收入平均值 2026 2027"
 
     def __init__(self, client: IFindClient):

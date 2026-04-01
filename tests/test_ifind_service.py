@@ -144,6 +144,8 @@ def test_service_maps_a_share_free_float_value_as_circulating_market_value():
                         "股票简称": ["宁德时代"],
                         "市盈率(pe)[20260401]": ["25.645"],
                         "市净率(pb)[20260401]": ["5.493"],
+                        "量比[20260401]": ["0.864"],
+                        "换手率[20260401]": ["0.544"],
                         "总市值[20260401]": [1875197434433.5],
                         "a股市值(不含限售股)[20260401]": ["1726960900000.000"],
                     }
@@ -157,6 +159,8 @@ def test_service_maps_a_share_free_float_value_as_circulating_market_value():
     pack = service.get_financial_pack("300750")
 
     assert pack.valuation is not None
+    assert pack.valuation.volume_ratio == 0.864
+    assert pack.valuation.turnover_rate == 0.544
     assert pack.valuation.total_market_value == 1875197434433.5
     assert pack.valuation.circulating_market_value == 1726960900000.0
 

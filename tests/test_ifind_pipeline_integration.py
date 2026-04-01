@@ -97,7 +97,7 @@ def test_pipeline_backfills_realtime_with_same_day_ifind_valuation(monkeypatch):
             class _Today:
                 @staticmethod
                 def isoformat():
-                    return "2026-04-01"
+                    return "2026-04-02"
 
             return _Today()
 
@@ -106,6 +106,8 @@ def test_pipeline_backfills_realtime_with_same_day_ifind_valuation(monkeypatch):
         stock_code="600519",
         stock_name="贵州茅台",
         as_of_date="2026-04-01",
+        volume_ratio=0.858,
+        turnover_rate=0.233,
         pe_ttm=23.6,
         pb=8.1,
         total_market_value=1_820_000_000_000.0,
@@ -122,6 +124,7 @@ def test_pipeline_backfills_realtime_with_same_day_ifind_valuation(monkeypatch):
         {
             "code": "600519",
             "stock_name": "贵州茅台",
+            "date": "2026-04-01",
             "realtime": {
                 "price": 1459.44,
                 "pb_ratio": 7.109509,
@@ -132,6 +135,9 @@ def test_pipeline_backfills_realtime_with_same_day_ifind_valuation(monkeypatch):
     )
 
     assert enhanced["realtime"]["pe_ratio"] == 23.6
+    assert enhanced["realtime"]["volume_ratio"] == 0.858
+    assert enhanced["realtime"]["volume_ratio_desc"] == "正常"
+    assert enhanced["realtime"]["turnover_rate"] == 0.233
     assert enhanced["realtime"]["pb_ratio"] == 7.109509
     assert enhanced["realtime"]["total_mv"] == 1_820_000_000_000.0
     assert enhanced["realtime"]["circ_mv"] == 980_000_000_000.0
