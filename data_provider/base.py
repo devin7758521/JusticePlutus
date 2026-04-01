@@ -424,7 +424,11 @@ class DataFetcherManager:
     - 所有数据源都失败时抛出异常
     """
     
-    def __init__(self, fetchers: Optional[List[BaseFetcher]] = None):
+    def __init__(
+        self,
+        fetchers: Optional[List[BaseFetcher]] = None,
+        ifind_fetcher: Optional[BaseFetcher] = None,
+    ):
         """
         初始化管理器
         
@@ -432,6 +436,7 @@ class DataFetcherManager:
             fetchers: 数据源列表（可选，默认按优先级自动创建）
         """
         self._fetchers: List[BaseFetcher] = []
+        self._ifind_fetcher: Optional[BaseFetcher] = ifind_fetcher
         
         if fetchers:
             # 按优先级排序
@@ -499,6 +504,32 @@ class DataFetcherManager:
         """添加数据源并重新排序"""
         self._fetchers.append(fetcher)
         self._fetchers.sort(key=lambda f: f.priority)
+
+    @staticmethod
+    def _ths_mode_enabled(config: Any) -> bool:
+        """Resolve THS professional mode from helper methods or raw flags."""
+        helper = getattr(config, 'is_ths_pro_data_enabled', None)
+        if callable(helper):
+            return bool(helper())
+        return bool(getattr(config, 'enable_ths_pro_data', False)) or bool(
+            getattr(config, 'enable_ifind', False)
+        )
+
+    def _can_use_ifind_daily(self, config: Any) -> bool:
+        if not self._ifind_fetcher or not self._ths_mode_enabled(config):
+            return False
+        supports = getattr(self._ifind_fetcher, 'supports_daily_data', None)
+        if callable(supports):
+            return bool(supports())
+        return True
+
+    def _can_use_ifind_realtime(self, config: Any) -> bool:
+        if not self._ifind_fetcher or not self._ths_mode_enabled(config):
+            return False
+        supports = getattr(self._ifind_fetcher, 'supports_realtime_quote', None)
+        if callable(supports):
+            return bool(supports())
+        return True
     
     def get_daily_data(
         self, 
@@ -530,10 +561,12 @@ class DataFetcherManager:
             DataFetchError: 所有数据源都失败时抛出
         """
         from .us_index_mapping import is_us_index_code, is_us_stock_code
+        from src.config import get_config
 
         # Normalize code (strip SH/SZ prefix etc.)
         stock_code = normalize_stock_code(stock_code)
 
+        config = get_config()
         errors = []
         total_fetchers = len(self._fetchers)
         request_start = time.time()
@@ -574,6 +607,31 @@ class DataFetcherManager:
             elapsed = time.time() - request_start
             logger.error(f"[数据源终止] {stock_code} 获取失败: elapsed={elapsed:.2f}s\n{error_summary}")
             raise DataFetchError(error_summary)
+
+        if self._can_use_ifind_daily(config):
+            try:
+                logger.info("[数据源尝试 THS] [IFindFetcher] 获取 %s...", stock_code)
+                df = self._ifind_fetcher.get_daily_data(
+                    stock_code=stock_code,
+                    start_date=start_date,
+                    end_date=end_date,
+                    days=days,
+                )
+                if df is not None and not df.empty:
+                    elapsed = time.time() - request_start
+                    logger.info(
+                        f"[数据源完成] {stock_code} 使用 [IFindFetcher] 获取成功: "
+                        f"rows={len(df)}, elapsed={elapsed:.2f}s"
+                    )
+                    return df, self._ifind_fetcher.name
+            except Exception as e:
+                error_type, error_reason = summarize_exception(e)
+                error_msg = f"[IFindFetcher] ({error_type}) {error_reason}"
+                logger.warning(
+                    f"[数据源失败 THS] [IFindFetcher] {stock_code}: "
+                    f"error_type={error_type}, reason={error_reason}"
+                )
+                errors.append(error_msg)
 
         for attempt, fetcher in enumerate(self._fetchers, start=1):
             try:
@@ -616,7 +674,10 @@ class DataFetcherManager:
     @property
     def available_fetchers(self) -> List[str]:
         """返回可用数据源名称列表"""
-        return [f.name for f in self._fetchers]
+        names = [f.name for f in self._fetchers]
+        if self._ifind_fetcher:
+            names.insert(0, self._ifind_fetcher.name)
+        return names
     
     def prefetch_realtime_quotes(self, stock_codes: List[str]) -> int:
         """
@@ -771,6 +832,21 @@ class DataFetcherManager:
         # primary_quote holds the first successful result; we may supplement
         # missing fields (volume_ratio, turnover_rate, etc.) from later sources.
         primary_quote = None
+        supplement_attempts = 0
+
+        if self._can_use_ifind_realtime(config):
+            try:
+                quote = self._ifind_fetcher.get_realtime_quote(stock_code)
+                if quote is not None and quote.has_basic_data():
+                    primary_quote = quote
+                    logger.info(f"[实时行情] {stock_code} 成功获取 (来源: ifind)")
+                    if not self._quote_needs_supplement(primary_quote):
+                        return primary_quote
+                    logger.debug(f"[实时行情] {stock_code} iFinD 部分字段缺失，尝试从后续数据源补充")
+            except Exception as e:
+                error_msg = f"[ifind] 失败: {str(e)}"
+                logger.warning(error_msg)
+                errors.append(error_msg)
         
         for source in source_priority:
             source = source.strip().lower()
