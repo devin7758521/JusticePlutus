@@ -36,8 +36,8 @@ flowchart TD
 
 | 数据类型 | 主要字段 | 来源链路 |
 |---------|----------|----------|
-| 日线 | open/close/high/low/volume/amount/ma | `TongHuaShun(iFinD，可用时) -> Tushare -> Efinance -> Akshare -> Pytdx -> Baostock -> YFinance` |
-| 实时 | price/volume_ratio/turnover_rate/估值字段 | `TongHuaShun(iFinD，可用时) -> REALTIME_SOURCE_PRIORITY` 顺序尝试，首源成功后补缺字段 |
+| 日线 | open/close/high/low/volume/amount/ma | `TongHuaShun(iFinD cmd_history_quotation) -> Tushare -> Efinance -> Akshare -> Pytdx -> Baostock -> YFinance` |
+| 实时 | price/volume_ratio/turnover_rate/估值字段 | `TongHuaShun(iFinD real_time_quotation) -> 同日 iFinD valuation backfill -> REALTIME_SOURCE_PRIORITY` 顺序补缺字段 |
 | 筹码 | profit_ratio/avg_cost/concentration | `HSCloud -> Wencai -> Akshare -> Tushare -> Efinance` |
 
 特性：
