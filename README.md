@@ -54,7 +54,7 @@
 - CLI：`python -m justice_plutus run`
 - 核心编排：`src/core/pipeline.py`
 - LLM 调用：LiteLLM（OpenAI-compatible/Gemini/Anthropic）
-- 数据源：Tushare / Efinance / Akshare / YFinance / HSCloud / Wencai
+- 数据源：TongHuaShun(iFinD，按能力优先) / Tushare / Efinance / Akshare / YFinance / HSCloud / Wencai
 - 搜索源：Bocha / Tavily / SerpAPI
 - 通知：Telegram + 可扩展渠道
 
@@ -64,10 +64,10 @@
 
 | 模块 | 主要来源 | 说明 |
 |------|----------|------|
-| 历史日线 | Tushare, Efinance, Akshare, Pytdx, Baostock, YFinance | 用于 MA/趋势与历史走势 |
-| 实时行情 | `REALTIME_SOURCE_PRIORITY` 指定顺序（如 Tencent/Sina/Efinance/Akshare） | 获取价格、量比、换手率等 |
+| 历史日线 | TongHuaShun(iFinD，若行情能力可用) -> Tushare, Efinance, Akshare, Pytdx, Baostock, YFinance | 用于 MA/趋势与历史走势 |
+| 实时行情 | TongHuaShun(iFinD，若行情能力可用) -> `REALTIME_SOURCE_PRIORITY` 指定顺序 | 获取价格、量比、换手率等 |
 | 筹码分布 | HSCloud, Wencai, Akshare, Tushare, Efinance | 用于筹码结构分析 |
-| 搜索增强 | Bocha, Tavily, SerpAPI | 风险、利好、业绩预期、行业信息 |
+| 搜索增强 | Bocha, Tavily, SerpAPI | 保持开放搜索混合源，用于风险、利好、业绩预期、行业信息 |
 | LLM 分析 | AIHubMix(OpenAI-compatible), OpenAI, Gemini, Anthropic | 生成结构化决策仪表盘 |
 | 通知出口 | Telegram, WeChat, Feishu, Email, Discord, Custom Webhook 等 | 由已配置通道决定实际发送 |
 
@@ -75,8 +75,8 @@
 
 ## 4. 降级策略（怎么降）
 
-1. 日线降级：`Tushare -> Efinance -> Akshare -> Pytdx -> Baostock -> YFinance`
-2. 实时降级：按 `REALTIME_SOURCE_PRIORITY` 逐个尝试；首源成功后继续补缺字段
+1. 日线降级：`TongHuaShun(iFinD，可用时) -> Tushare -> Efinance -> Akshare -> Pytdx -> Baostock -> YFinance`
+2. 实时降级：`TongHuaShun(iFinD，可用时) -> REALTIME_SOURCE_PRIORITY`；首源成功后继续补缺字段
 3. 筹码降级：`HSCloud -> Wencai -> Akshare -> Tushare -> Efinance`
 4. 搜索降级：单搜索源失败不阻断主流程，保留已有结果继续分析
 5. LLM Key 降级：`AIHUBMIX_KEY` 优先，失败后 `OPENAI_API_KEY`
@@ -129,26 +129,32 @@
   - `WENCAI_COOKIE`（建议）
   - `HSCLOUD_AUTH_TOKEN` 或 `HSCLOUD_APP_KEY + HSCLOUD_APP_SECRET`（可选优先源）
 - 搜索增强：`BOCHA_API_KEYS`、`TAVILY_API_KEYS`、`SERPAPI_API_KEYS`
-- iFinD 基本面增强（可选，默认关闭）：
+- 同花顺专业数据模式（可选，默认关闭）：
   - `IFIND_REFRESH_TOKEN`
-  - `ENABLE_IFIND=true`
-  - `ENABLE_IFIND_ANALYSIS_ENHANCEMENT=true`
+  - `ENABLE_THS_PRO_DATA=true`
+  - 兼容旧配置：`ENABLE_IFIND=true`
+  - 可显式控制 prompt 注入：`ENABLE_IFIND_ANALYSIS_ENHANCEMENT=true`
   - 建议本地通过 `./scripts/run_with_overlay_env.sh` 启动，让 `.env.local` 叠加在现有 `.env` 之上
 
-### 6.2.1 iFinD 增强说明
+### 6.2.1 同花顺 / iFinD 专业数据模式说明
 
-iFinD 在当前项目中只做“增强”，不做基础依赖替换。
+当前项目把 iFinD 作为“同花顺专业数据模式”的核心入口：
+
+- 结构化专业数据优先走同花顺
+- 开放搜索继续保持混合源
+- 行情类能力只有在接口已实现且账号可用时才切换，否则自动回退到现有链路
 
 行为原则：
 
-- 有 iFinD：给现有分析补充财报、估值、盈利预测等结构化数据
-- 没有 iFinD：保持当前主流程不变
-- iFinD 报错：自动跳过增强，不阻断历史行情、实时行情、筹码、搜索、LLM 和通知链路
+- 开启 `ENABLE_THS_PRO_DATA`：能走同花顺的结构化数据就优先走
+- 没有同花顺 token / 权限 / 能力：保持当前主流程不变
+- iFinD 报错：自动跳过增强或回退，不阻断历史行情、实时行情、筹码、搜索、LLM 和通知链路
 
 当前增强内容：
 
 - 新增可选配置：
   - `IFIND_REFRESH_TOKEN`
+  - `ENABLE_THS_PRO_DATA`
   - `ENABLE_IFIND`
   - `ENABLE_IFIND_ANALYSIS_ENHANCEMENT`
 - 新增独立服务层：
@@ -162,6 +168,9 @@ iFinD 在当前项目中只做“增强”，不做基础依赖替换。
   - `ifind_valuation`
   - `ifind_forecast`
   - `ifind_quality_summary`
+- 在数据路由层新增 TongHuaShun-first 钩子：
+  - 日线：若 THS 行情能力可用则优先尝试，否则直接回退
+  - 实时：若 THS 行情能力可用则优先尝试，否则继续 `REALTIME_SOURCE_PRIORITY`
 - 在 LLM prompt 中新增：
   - `基本面与估值增强`
 
@@ -176,7 +185,7 @@ iFinD 在当前项目中只做“增强”，不做基础依赖替换。
 
 无侵入保证：
 
-- `ENABLE_IFIND=false` 时不初始化、不请求、不改 prompt
+- `ENABLE_THS_PRO_DATA=false` 且 `ENABLE_IFIND=false` 时不初始化、不请求、不改 prompt
 - 开关开启但没有 `IFIND_REFRESH_TOKEN` 时只记录 warning，直接回退到原有流程
 - iFinD 子查询失败时只返回部分数据或直接跳过，不影响主分析结果
 
@@ -184,8 +193,9 @@ iFinD 在当前项目中只做“增强”，不做基础依赖替换。
 
 ```dotenv
 IFIND_REFRESH_TOKEN=your_refresh_token_here
-ENABLE_IFIND=true
-ENABLE_IFIND_ANALYSIS_ENHANCEMENT=true
+ENABLE_THS_PRO_DATA=true
+# 兼容旧配置时也可以继续使用 ENABLE_IFIND=true
+# 如需显式控制 prompt 注入，可再加 ENABLE_IFIND_ANALYSIS_ENHANCEMENT=true
 ```
 
 推荐运行方式：

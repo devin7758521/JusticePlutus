@@ -1,14 +1,15 @@
-# iFinD 增强接入说明
+# 同花顺 / iFinD 专业数据模式说明
 
 ## 目的
 
-当前仓库中的 iFinD 接入只承担“增强”角色，不改变 JusticePlutus 原有主流程的基础依赖关系。
+当前仓库中的 iFinD 接入已经升级为“同花顺专业数据模式”的核心入口之一。
 
 设计原则：
 
-- 有 iFinD：在现有分析基础上补充财报、估值、盈利预测等结构化数据
-- 没 iFinD：系统保持原有行为，不影响历史行情、实时行情、筹码、搜索、LLM 分析和通知
-- iFinD 报错：跳过增强，不阻断主流程
+- 开启 `ENABLE_THS_PRO_DATA` 后，能走同花顺的结构化专业数据就优先走
+- 开放式搜索 / 新闻继续保持混合源，不强制替换为同花顺
+- 没 iFinD token、没权限或能力未实现时，系统自动回退到原有主流程
+- iFinD 报错：跳过增强或回退，不阻断主流程
 
 ## 当前增强了什么
 
@@ -17,6 +18,7 @@
 新增配置项：
 
 - `IFIND_REFRESH_TOKEN`
+- `ENABLE_THS_PRO_DATA`
 - `ENABLE_IFIND`
 - `ENABLE_IFIND_ANALYSIS_ENHANCEMENT`
 
@@ -44,6 +46,7 @@
   - 定义财报包、估值包、预期包、质量摘要
 - [service.py](/Users/boyuewu/Projects/JusticePlutus/src/ifind/service.py)
   - 对外暴露 `get_financial_pack()`
+  - 对外暴露行情能力探测与安全降级接口
 
 ### 3. 增强了现有分析上下文
 
@@ -60,6 +63,9 @@
   - `ifind_valuation`
   - `ifind_forecast`
   - `ifind_quality_summary`
+- 初始化数据层时，会把共享的 iFinD service 包装成 TongHuaShun-first fetcher
+- 如果 THS 日线 / 实时行情能力可用，则优先尝试
+- 如果能力未实现、无权限或失败，则立即回退到现有日线 / 实时链路
 
 ### 4. 增强了 LLM Prompt
 
@@ -91,13 +97,13 @@
 
 ### 1. 开关关闭时不生效
 
-- `ENABLE_IFIND=false` 时，不初始化 iFinD service
+- `ENABLE_THS_PRO_DATA=false` 且 `ENABLE_IFIND=false` 时，不初始化 iFinD service
 - 不会发起 iFinD 请求
 - 不会改动现有 prompt
 
 ### 2. 缺少 token 时自动跳过
 
-- 即使 `ENABLE_IFIND=true`
+- 即使 `ENABLE_THS_PRO_DATA=true` 或 `ENABLE_IFIND=true`
 - 如果没有 `IFIND_REFRESH_TOKEN`
 - 系统只记录 warning，仍继续原有分析流程
 
@@ -109,10 +115,10 @@
 
 ### 4. 不改变原有主链路
 
-以下能力不依赖 iFinD：
+以下能力不依赖 iFinD 完整可用：
 
-- 历史日线
-- 实时行情
+- 历史日线（若 THS 行情能力不可用则自动回退）
+- 实时行情（若 THS 行情能力不可用则自动回退）
 - 筹码分布
 - 搜索增强
 - LLM 主分析
@@ -127,8 +133,9 @@
 
 ```dotenv
 IFIND_REFRESH_TOKEN=your_refresh_token_here
-ENABLE_IFIND=true
-ENABLE_IFIND_ANALYSIS_ENHANCEMENT=true
+ENABLE_THS_PRO_DATA=true
+# 兼容旧配置时也可以继续使用 ENABLE_IFIND=true
+# 如需显式控制 prompt 注入，可再加 ENABLE_IFIND_ANALYSIS_ENHANCEMENT=true
 ```
 
 推荐运行方式：

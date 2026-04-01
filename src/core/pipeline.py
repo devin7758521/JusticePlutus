@@ -26,6 +26,7 @@ import pandas as pd
 from src.config import get_config, Config
 from src.storage import get_db
 from data_provider import DataFetcherManager
+from data_provider.ifind_fetcher import IFindFetcher
 from data_provider.realtime_types import ChipDistribution
 from src.analyzer import GeminiAnalyzer, AnalysisResult, fill_chip_structure_if_needed
 from src.data.stock_mapping import STOCK_NAME_MAP
@@ -78,7 +79,10 @@ class StockAnalysisPipeline:
         
         # 初始化各模块
         self.db = get_db()
-        self.fetcher_manager = DataFetcherManager()
+        self.ifind_service = self._build_ifind_service()
+        self.fetcher_manager = DataFetcherManager(
+            ifind_fetcher=IFindFetcher(self.ifind_service) if self.ifind_service else None
+        )
         # 不再单独创建 akshare_fetcher，统一使用 fetcher_manager 获取增强数据
         self.trend_analyzer = StockTrendAnalyzer()  # 趋势分析器
         self.analyzer = GeminiAnalyzer()
@@ -93,7 +97,6 @@ class StockAnalysisPipeline:
             minimax_keys=self.config.minimax_api_keys,
             news_max_age_days=self.config.news_max_age_days,
         )
-        self.ifind_service = self._build_ifind_service()
         
         logger.info(f"调度器初始化完成，最大并发数: {self.max_workers}")
         logger.info("已启用趋势分析器 (MA5>MA10>MA20 多头判断)")

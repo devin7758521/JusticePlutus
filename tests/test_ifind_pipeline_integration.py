@@ -1,3 +1,5 @@
+import src.core.pipeline as pipeline_module
+from data_provider.ifind_fetcher import IFindFetcher
 from src.core.pipeline import StockAnalysisPipeline
 from src.ifind.schemas import (
     FinancialQualitySummary,
@@ -27,6 +29,21 @@ class FakeIFindService:
     def get_financial_pack(self, stock_code, stock_name=None):
         self.calls.append((stock_code, stock_name))
         return self.pack
+
+
+class _InitConfig:
+    max_workers = 1
+    save_context_snapshot = False
+    report_output_dir = None
+    bocha_api_keys = []
+    tavily_api_keys = []
+    brave_api_keys = []
+    serpapi_keys = []
+    minimax_api_keys = []
+    news_max_age_days = 3
+    enable_realtime_quote = False
+    enable_chip_distribution = False
+    realtime_source_priority = "efinance"
 
 
 def _build_pack():
@@ -120,3 +137,29 @@ def test_pipeline_skips_ifind_when_service_unavailable():
     )
 
     assert enhanced == original
+
+
+def test_pipeline_passes_ifind_fetcher_to_manager_when_service_available(monkeypatch):
+    captured = {}
+    fake_service = object()
+
+    class FakeManager:
+        def __init__(self, *args, **kwargs):
+            captured.update(kwargs)
+
+    class FakeSearchService:
+        def __init__(self, *args, **kwargs):
+            self.is_available = False
+
+    monkeypatch.setattr(pipeline_module.StockAnalysisPipeline, "_build_ifind_service", lambda self: fake_service)
+    monkeypatch.setattr(pipeline_module, "DataFetcherManager", FakeManager)
+    monkeypatch.setattr(pipeline_module, "get_db", lambda: object())
+    monkeypatch.setattr(pipeline_module, "StockTrendAnalyzer", lambda: object())
+    monkeypatch.setattr(pipeline_module, "GeminiAnalyzer", lambda: object())
+    monkeypatch.setattr(pipeline_module, "NotificationService", lambda source_message=None: object())
+    monkeypatch.setattr(pipeline_module, "SearchService", FakeSearchService)
+
+    pipeline_module.StockAnalysisPipeline(config=_InitConfig())
+
+    assert isinstance(captured["ifind_fetcher"], IFindFetcher)
+    assert captured["ifind_fetcher"].service is fake_service

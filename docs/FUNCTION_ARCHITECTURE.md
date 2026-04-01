@@ -36,8 +36,8 @@ flowchart TD
 
 | 数据类型 | 主要字段 | 来源链路 |
 |---------|----------|----------|
-| 日线 | open/close/high/low/volume/amount/ma | `Tushare -> Efinance -> Akshare -> Pytdx -> Baostock -> YFinance` |
-| 实时 | price/volume_ratio/turnover_rate/估值字段 | `REALTIME_SOURCE_PRIORITY` 顺序尝试，首源成功后补缺字段 |
+| 日线 | open/close/high/low/volume/amount/ma | `TongHuaShun(iFinD，可用时) -> Tushare -> Efinance -> Akshare -> Pytdx -> Baostock -> YFinance` |
+| 实时 | price/volume_ratio/turnover_rate/估值字段 | `TongHuaShun(iFinD，可用时) -> REALTIME_SOURCE_PRIORITY` 顺序尝试，首源成功后补缺字段 |
 | 筹码 | profit_ratio/avg_cost/concentration | `HSCloud -> Wencai -> Akshare -> Tushare -> Efinance` |
 
 特性：
@@ -56,6 +56,7 @@ Provider：
 策略：
 
 - 多维度并行搜索，单 Provider 失败不阻断主流程
+- 保持开放搜索混合源，不与 TongHuaShun 结构化数据能力做 1:1 替换
 - 搜索结果进入 LLM prompt 作为风险/利好/业绩依据
 
 ### 2.5 LLM 层
@@ -93,8 +94,8 @@ Key 策略：
 
 | 位置 | 主路径 | 降级/兜底 |
 |------|--------|-----------|
-| 日线数据 | Tushare | 自动切换到 Efinance/Akshare/Pytdx/Baostock/YFinance |
-| 实时数据 | 优先级首源 | 下一个实时源继续尝试；成功后补缺字段 |
+| 日线数据 | TongHuaShun(iFinD，可用时) | 自动切换到 Tushare/Efinance/Akshare/Pytdx/Baostock/YFinance |
+| 实时数据 | TongHuaShun(iFinD，可用时) 或优先级首源 | 下一个实时源继续尝试；成功后补缺字段 |
 | 筹码数据 | HSCloud | Wencai -> Akshare -> Tushare -> Efinance |
 | 搜索增强 | 全 Provider 可用 | 单源失败不阻断 |
 | LLM Key | AIHUBMIX_KEY | OPENAI_API_KEY |
@@ -121,9 +122,11 @@ Key 策略：
 ### 4.3 数据/搜索
 
 - `TUSHARE_TOKEN`
+- `ENABLE_THS_PRO_DATA`
 - `ENABLE_CHIP_DISTRIBUTION`
 - `WENCAI_COOKIE` / `WENCAI_USER_AGENT`
 - `HSCLOUD_AUTH_TOKEN` 或 `HSCLOUD_APP_KEY + HSCLOUD_APP_SECRET`
+- `IFIND_REFRESH_TOKEN`
 - `BOCHA_API_KEYS`
 - `TAVILY_API_KEYS`
 - `SERPAPI_API_KEYS`
