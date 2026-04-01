@@ -5,9 +5,10 @@ from data_provider.realtime_types import RealtimeSource
 
 
 class _FakeIFindService:
-    def __init__(self, daily_payload=None, realtime_payload=None):
+    def __init__(self, daily_payload=None, realtime_payload=None, stock_name=""):
         self.daily_payload = daily_payload
         self.realtime_payload = realtime_payload
+        self.stock_name = stock_name
 
     def supports_daily_data(self):
         return True
@@ -20,6 +21,9 @@ class _FakeIFindService:
 
     def get_realtime_quote(self, stock_code):
         return self.realtime_payload
+
+    def get_stock_name(self, stock_code):
+        return self.stock_name
 
 
 def test_ifind_fetcher_normalizes_official_history_payload():
@@ -93,3 +97,13 @@ def test_ifind_fetcher_maps_official_realtime_payload_to_unified_quote():
     assert quote.turnover_rate == 0.23257871704630456
     assert quote.volume_ratio is None
     assert quote.pb_ratio == 7.109509
+
+
+def test_ifind_fetcher_gets_stock_name_from_ifind_service():
+    fetcher = IFindFetcher(
+        _FakeIFindService(stock_name="贵州茅台")
+    )
+
+    name = fetcher.get_stock_name("600519")
+
+    assert name == "贵州茅台"

@@ -57,6 +57,19 @@ def _find_value(parsed_columns: List[Tuple[str, Optional[str], Any]], keyword: s
     return None, None
 
 
+def extract_stock_name(payload: Dict[str, Any]) -> str:
+    table = _extract_table(payload)
+    if not table:
+        return ""
+
+    for field in ("股票简称", "证券简称", "股票名称", "证券名称"):
+        value = _first_value(table.get(field))
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    return ""
+
+
 def map_financial_statement_pack(stock_code: str, payload: Dict[str, Any]) -> Optional[FinancialStatementPack]:
     table = _extract_table(payload)
     if not table:

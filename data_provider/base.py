@@ -1106,6 +1106,8 @@ class DataFetcherManager:
         stock_code = normalize_stock_code(stock_code)
         static_name = STOCK_NAME_MAP.get(stock_code)
 
+        from src.config import get_config
+
         # 1. 先检查缓存
         if hasattr(self, '_stock_name_cache') and stock_code in self._stock_name_cache:
             return self._stock_name_cache[stock_code]
@@ -1122,6 +1124,22 @@ class DataFetcherManager:
                 self._stock_name_cache[stock_code] = name
                 logger.info(f"[股票名称] 从实时行情获取: {stock_code} -> {name}")
                 return name
+
+        config = get_config()
+        if (
+            self._ths_mode_enabled(config)
+            and self._ifind_fetcher
+            and hasattr(self._ifind_fetcher, 'get_stock_name')
+            and (allow_realtime or not is_meaningful_stock_name(static_name, stock_code))
+        ):
+            try:
+                name = self._ifind_fetcher.get_stock_name(stock_code)
+                if is_meaningful_stock_name(name, stock_code):
+                    self._stock_name_cache[stock_code] = name
+                    logger.info(f"[股票名称] 从 IFindFetcher 获取: {stock_code} -> {name}")
+                    return name
+            except Exception as e:
+                logger.debug(f"[股票名称] IFindFetcher 获取失败: {e}")
 
         if is_meaningful_stock_name(static_name, stock_code):
             self._stock_name_cache[stock_code] = static_name

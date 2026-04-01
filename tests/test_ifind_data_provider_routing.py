@@ -80,6 +80,7 @@ class _DummyIFindFetcher(_DummyDailyFetcher):
         realtime_error: Exception | None = None,
         supports_daily: bool = True,
         supports_realtime: bool = True,
+        stock_name: str = "",
     ):
         super().__init__(name="IFindFetcher", calls=calls, df=daily_df, err=daily_error)
         self.priority = -1
@@ -87,6 +88,7 @@ class _DummyIFindFetcher(_DummyDailyFetcher):
         self._realtime_error = realtime_error
         self._supports_daily = supports_daily
         self._supports_realtime = supports_realtime
+        self._stock_name = stock_name
 
     def supports_daily_data(self) -> bool:
         return self._supports_daily
@@ -99,6 +101,20 @@ class _DummyIFindFetcher(_DummyDailyFetcher):
         if self._realtime_error is not None:
             raise self._realtime_error
         return self._realtime_quote
+
+    def get_stock_name(self, stock_code: str):
+        self._calls.append(f"{self.name}:stock_name")
+        return self._stock_name
+
+
+class _DummyNamedFetcher(_DummyDailyFetcher):
+    def __init__(self, name: str, calls: list[str], stock_name: str):
+        super().__init__(name=name, calls=calls)
+        self._stock_name = stock_name
+
+    def get_stock_name(self, stock_code: str):
+        self._calls.append(f"{self.name}:stock_name")
+        return self._stock_name
 
 
 def test_daily_data_prefers_ifind_fetcher_when_ths_mode_enabled(monkeypatch):
@@ -308,3 +324,21 @@ def test_realtime_quote_accepts_previous_trading_day_ifind_metrics_before_open(m
     assert quote.total_mv == 1827613242579.6
     assert quote.circ_mv == 1827613200000.0
     assert calls == ["IFindFetcher"]
+
+
+def test_stock_name_prefers_ifind_lookup_before_external_when_static_missing(monkeypatch):
+    calls: list[str] = []
+    ifind = _DummyIFindFetcher(calls=calls, stock_name="贵州茅台")
+    fallback = _DummyNamedFetcher(name="EfinanceFetcher", calls=calls, stock_name="外部名称")
+    manager = DataFetcherManager(fetchers=[fallback], ifind_fetcher=ifind)
+
+    monkeypatch.setattr("data_provider.base.STOCK_NAME_MAP", {})
+    monkeypatch.setattr(
+        "src.config.get_config",
+        lambda: SimpleNamespace(enable_ths_pro_data=True, enable_ifind=False),
+    )
+
+    name = manager.get_stock_name("600519", allow_realtime=False)
+
+    assert name == "贵州茅台"
+    assert calls == ["IFindFetcher:stock_name"]

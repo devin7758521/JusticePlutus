@@ -66,6 +66,7 @@
 - 初始化数据层时，会把共享的 iFinD service 包装成 TongHuaShun-first fetcher
 - 日线已接入 iFinD 官方 `cmd_history_quotation`
 - 实时已接入 iFinD 官方 `real_time_quotation`
+- 股票名称已接入 iFinD `股票简称` 轻量查询，实时接口没返回名称时会优先补一次同花顺简称
 - 当 `real_time_quotation` 缺市场字段时，会优先尝试用“同日 iFinD 市场指标包”补齐 `量比/换手率/PE/PB/总市值/流通市值`
 - 如果字段缺失、无权限或请求失败，则立即回退到现有日线 / 实时链路
 
@@ -121,11 +122,28 @@
 
 - 历史日线（若 iFinD `cmd_history_quotation` 不可用则自动回退）
 - 实时行情（若 iFinD `real_time_quotation` 不可用或字段不全则自动回退 / 补缺）
+- 股票名称（若 iFinD `股票简称` 查询失败则自动回退到静态映射 / 其它数据源）
 - 筹码分布
 - 搜索增强
 - LLM 主分析
 - 报告生成
 - 通知发送
+
+## 当前覆盖边界
+
+已经优先切到同花顺的结构化链路：
+
+- 历史日线：`cmd_history_quotation`
+- 实时行情：`real_time_quotation`
+- 实时市场字段补齐：同日 iFinD 市场指标包
+- 股票名称：`股票简称` 轻量查询
+- 基本面 / 估值 / 一致预期：`smart_stock_picking`
+
+当前仍保留混合源或外部源的链路：
+
+- 新闻 / 舆情 / 事件搜索：继续走 Bocha / Tavily / SerpAPI
+- 筹码分布：继续走 HSCloud / Wencai / Akshare / Tushare / Efinance
+- 其它非结构化情报：继续保持开放搜索，不强制替换为同花顺
 
 ## 如何配置
 

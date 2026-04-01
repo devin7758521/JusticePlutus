@@ -35,6 +35,9 @@ class IFindFetcher(BaseFetcher):
     def supports_realtime_quote(self) -> bool:
         return self.service.supports_realtime_quote()
 
+    def get_stock_name(self, stock_code: str) -> str:
+        return self.service.get_stock_name(stock_code)
+
     def _fetch_raw_data(self, stock_code: str, start_date: str, end_date: str) -> pd.DataFrame:
         payload = self.service.get_daily_data(stock_code, start_date, end_date)
         if payload is None:
