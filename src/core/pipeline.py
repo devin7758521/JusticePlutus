@@ -1279,17 +1279,28 @@ class StockAnalysisPipeline:
             if self.notifier.is_available():
                 channels = self.notifier.get_available_channels()
                 context_success = self.notifier.send_to_context(report)
+                append_image_mode = False
+                append_mode_helper = getattr(
+                    self.notifier,
+                    "_append_image_mode_enabled",
+                    None,
+                )
+                if callable(append_mode_helper):
+                    append_image_mode = append_mode_helper()
 
                 # Issue #455: Markdown 转图片（与 notification.send 逻辑一致）
                 from src.md2img import markdown_to_image
 
-                channels_needing_image = {
-                    ch for ch in channels
-                    if ch.value in self.notifier._markdown_to_image_channels
-                }
-                non_wechat_channels_needing_image = {
-                    ch for ch in channels_needing_image if ch != NotificationChannel.WECHAT
-                }
+                channels_needing_image = set()
+                non_wechat_channels_needing_image = set()
+                if not append_image_mode:
+                    channels_needing_image = {
+                        ch for ch in channels
+                        if ch.value in self.notifier._markdown_to_image_channels
+                    }
+                    non_wechat_channels_needing_image = {
+                        ch for ch in channels_needing_image if ch != NotificationChannel.WECHAT
+                    }
 
                 def _get_md2img_hint() -> str:
                     try:
@@ -1326,41 +1337,56 @@ class StockAnalysisPipeline:
                         dashboard_content = self.notifier.generate_wechat_dashboard(results)
                     logger.info(f"企业微信仪表盘长度: {len(dashboard_content)} 字符")
                     logger.debug(f"企业微信推送内容:\n{dashboard_content}")
-                    wechat_image_bytes = None
-                    if NotificationChannel.WECHAT in channels_needing_image:
-                        wechat_image_bytes = markdown_to_image(
-                            dashboard_content,
-                            max_chars=self.notifier._markdown_to_image_max_chars,
-                        )
-                        if wechat_image_bytes is None:
-                            logger.warning(
-                                "企业微信 Markdown 转图片失败，将回退为文本发送。请检查 MARKDOWN_TO_IMAGE_CHANNELS 配置并安装 %s",
-                                _get_md2img_hint(),
-                            )
-                    use_image = self.notifier._should_use_image_for_channel(
-                        NotificationChannel.WECHAT, wechat_image_bytes
-                    )
-                    if use_image:
-                        wechat_success = self.notifier._send_wechat_image(wechat_image_bytes)
-                    else:
+                    if append_image_mode:
                         wechat_success = self.notifier.send_to_wechat(dashboard_content)
+                        if wechat_success:
+                            self.notifier._append_image_after_text(
+                                dashboard_content,
+                                [NotificationChannel.WECHAT],
+                            )
+                    else:
+                        wechat_image_bytes = None
+                        if NotificationChannel.WECHAT in channels_needing_image:
+                            wechat_image_bytes = markdown_to_image(
+                                dashboard_content,
+                                max_chars=self.notifier._markdown_to_image_max_chars,
+                            )
+                            if wechat_image_bytes is None:
+                                logger.warning(
+                                    "企业微信 Markdown 转图片失败，将回退为文本发送。请检查 MARKDOWN_TO_IMAGE_CHANNELS 配置并安装 %s",
+                                    _get_md2img_hint(),
+                                )
+                        use_image = self.notifier._should_use_image_for_channel(
+                            NotificationChannel.WECHAT, wechat_image_bytes
+                        )
+                        if use_image:
+                            wechat_success = self.notifier._send_wechat_image(wechat_image_bytes)
+                        else:
+                            wechat_success = self.notifier.send_to_wechat(dashboard_content)
 
                 # 其他渠道：发完整报告（避免自定义 Webhook 被 wechat 截断逻辑污染）
                 non_wechat_success = False
                 stock_email_groups = getattr(self.config, 'stock_email_groups', []) or []
+                report_append_channels: List[NotificationChannel] = []
+                report_append_email_receivers: Dict[NotificationChannel, Optional[List[str]]] = {}
                 for channel in channels:
                     if channel == NotificationChannel.WECHAT:
                         continue
                     if channel == NotificationChannel.FEISHU:
                         non_wechat_success = self.notifier.send_to_feishu(report) or non_wechat_success
                     elif channel == NotificationChannel.TELEGRAM:
-                        use_image = self.notifier._should_use_image_for_channel(
-                            channel, image_bytes
-                        )
-                        if use_image:
-                            result = self.notifier._send_telegram_photo(image_bytes)
-                        else:
+                        if append_image_mode:
                             result = self.notifier.send_to_telegram(report)
+                            if result:
+                                report_append_channels.append(channel)
+                        else:
+                            use_image = self.notifier._should_use_image_for_channel(
+                                channel, image_bytes
+                            )
+                            if use_image:
+                                result = self.notifier._send_telegram_photo(image_bytes)
+                            else:
+                                result = self.notifier.send_to_telegram(report)
                         non_wechat_success = result or non_wechat_success
                     elif channel == NotificationChannel.EMAIL:
                         if stock_email_groups:
@@ -1379,44 +1405,68 @@ class StockAnalysisPipeline:
                                 emails_to_results[key].append(r)
                             for key, group_results in emails_to_results.items():
                                 grp_report = self._generate_aggregate_report(group_results, report_type)
-                                grp_image_bytes = None
-                                if channel.value in self.notifier._markdown_to_image_channels:
-                                    grp_image_bytes = markdown_to_image(
-                                        grp_report,
-                                        max_chars=self.notifier._markdown_to_image_max_chars,
-                                    )
-                                use_image = self.notifier._should_use_image_for_channel(
-                                    channel, grp_image_bytes
-                                )
                                 receivers = list(key) if key is not None else None
-                                if use_image:
-                                    result = self.notifier._send_email_with_inline_image(
-                                        grp_image_bytes, receivers=receivers
-                                    )
-                                else:
+                                if append_image_mode:
                                     result = self.notifier.send_to_email(
                                         grp_report, receivers=receivers
                                     )
+                                    if result:
+                                        self.notifier._append_image_after_text(
+                                            grp_report,
+                                            [NotificationChannel.EMAIL],
+                                            email_receivers={
+                                                NotificationChannel.EMAIL: receivers
+                                            },
+                                        )
+                                else:
+                                    grp_image_bytes = None
+                                    if channel.value in self.notifier._markdown_to_image_channels:
+                                        grp_image_bytes = markdown_to_image(
+                                            grp_report,
+                                            max_chars=self.notifier._markdown_to_image_max_chars,
+                                        )
+                                    use_image = self.notifier._should_use_image_for_channel(
+                                        channel, grp_image_bytes
+                                    )
+                                    if use_image:
+                                        result = self.notifier._send_email_with_inline_image(
+                                            grp_image_bytes, receivers=receivers
+                                        )
+                                    else:
+                                        result = self.notifier.send_to_email(
+                                            grp_report, receivers=receivers
+                                        )
                                 non_wechat_success = result or non_wechat_success
+                        else:
+                            if append_image_mode:
+                                result = self.notifier.send_to_email(report)
+                                if result:
+                                    report_append_channels.append(channel)
+                                    report_append_email_receivers[channel] = None
+                            else:
+                                use_image = self.notifier._should_use_image_for_channel(
+                                    channel, image_bytes
+                                )
+                                if use_image:
+                                    result = self.notifier._send_email_with_inline_image(image_bytes)
+                                else:
+                                    result = self.notifier.send_to_email(report)
+                            non_wechat_success = result or non_wechat_success
+                    elif channel == NotificationChannel.CUSTOM:
+                        if append_image_mode:
+                            result = self.notifier.send_to_custom(report)
+                            if result:
+                                report_append_channels.append(channel)
                         else:
                             use_image = self.notifier._should_use_image_for_channel(
                                 channel, image_bytes
                             )
                             if use_image:
-                                result = self.notifier._send_email_with_inline_image(image_bytes)
+                                result = self.notifier._send_custom_webhook_image(
+                                    image_bytes, fallback_content=report
+                                )
                             else:
-                                result = self.notifier.send_to_email(report)
-                            non_wechat_success = result or non_wechat_success
-                    elif channel == NotificationChannel.CUSTOM:
-                        use_image = self.notifier._should_use_image_for_channel(
-                            channel, image_bytes
-                        )
-                        if use_image:
-                            result = self.notifier._send_custom_webhook_image(
-                                image_bytes, fallback_content=report
-                            )
-                        else:
-                            result = self.notifier.send_to_custom(report)
+                                result = self.notifier.send_to_custom(report)
                         non_wechat_success = result or non_wechat_success
                     elif channel == NotificationChannel.PUSHPLUS:
                         non_wechat_success = self.notifier.send_to_pushplus(report) or non_wechat_success
@@ -1430,6 +1480,13 @@ class StockAnalysisPipeline:
                         non_wechat_success = self.notifier.send_to_astrbot(report) or non_wechat_success
                     else:
                         logger.warning(f"未知通知渠道: {channel}")
+
+                if append_image_mode and report_append_channels:
+                    self.notifier._append_image_after_text(
+                        report,
+                        report_append_channels,
+                        email_receivers=report_append_email_receivers,
+                    )
 
                 success = wechat_success or non_wechat_success or context_success
                 if success:
