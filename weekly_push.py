@@ -11,7 +11,13 @@
 ================================================================================
 """
 
+import os
+import logging
 from typing import List, Dict, Any
+import requests
+
+
+logger = logging.getLogger(__name__)
 
 
 def convert_to_star_rating(sentiment_score: float, all_scores: List[float]) -> int:
@@ -196,13 +202,51 @@ def push_weekly_selection_to_wechat(
             print("=" * 80)
             print(message)
             print("=" * 80)
-            print("✓ 消息已格式化（实际推送需要配置企业微信）")
+        
+        # 实际推送到企业微信
+        webhook_url = os.getenv('WECHAT_WORK_WEBHOOK') or os.getenv('WECHAT_WEBHOOK_URL')
+        
+        if not webhook_url:
+            if verbose:
+                print("⚠ 企业微信 Webhook 未配置，跳过推送")
+                print("请设置环境变量 WECHAT_WORK_WEBHOOK 或 WECHAT_WEBHOOK_URL")
+            return message
+        
+        # 发送到企业微信
+        payload = {
+            "msgtype": "markdown",
+            "markdown": {
+                "content": message
+            }
+        }
+        
+        response = requests.post(
+            webhook_url,
+            json=payload,
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('errcode') == 0:
+                if verbose:
+                    print("✓ 消息已成功推送到企业微信")
+                return message
+            else:
+                if verbose:
+                    print(f"✗ 企业微信推送失败: {result.get('errmsg', '未知错误')}")
+                logger.error(f"企业微信推送失败: {result}")
+        else:
+            if verbose:
+                print(f"✗ 企业微信推送失败: HTTP {response.status_code}")
+            logger.error(f"企业微信推送失败: HTTP {response.status_code}")
         
         return message
         
     except Exception as e:
         if verbose:
-            print(f"✗ 格式化失败: {e}")
+            print(f"✗ 推送失败: {e}")
+        logger.error(f"推送失败: {e}")
         return ""
 
 
