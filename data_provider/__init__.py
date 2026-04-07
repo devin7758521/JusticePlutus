@@ -26,6 +26,8 @@
 5. BaostockFetcher (Priority 3) - 来自 baostock 库
 6. YfinanceFetcher (Priority 4) - 来自 yfinance 库
 
+注意：BaostockFetcher优先级可通过环境变量BAOSTOCK_PRIORITY调整
+
 筹码扩展源（仅用于筹码降级链）：
 - HSCloudFetcher
 - WencaiFetcher
