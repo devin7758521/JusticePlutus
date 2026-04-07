@@ -509,8 +509,8 @@ class DataFetcherManager:
         
         优先级：
         0. EfinanceWeeklyFetcher - 最高优先级
+        0. BaostockWeeklyFetcher - 同优先级，免费稳定
         1. AkshareWeeklyFetcher
-        1. BaostockWeeklyFetcher - 同优先级
         2. TushareWeeklyFetcher
         2. PytdxWeeklyFetcher
         4. YfinanceWeeklyFetcher - 兜底数据源
@@ -527,9 +527,9 @@ class DataFetcherManager:
         # 创建所有周K线数据源实例
         self._weekly_fetchers = [
             EfinanceWeeklyFetcher(),
+            BaostockWeeklyFetcher(),
             AkshareWeeklyFetcher(),
             TushareWeeklyFetcher(),
-            BaostockWeeklyFetcher(),
             PytdxWeeklyFetcher(),
             YfinanceWeeklyFetcher(),
         ]

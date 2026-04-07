@@ -32,8 +32,8 @@
 
 周K线扩展源（按优先级）：
 - EfinanceWeeklyFetcher (Priority 0)
+- BaostockWeeklyFetcher (Priority 0)
 - AkshareWeeklyFetcher (Priority 1)
-- BaostockWeeklyFetcher (Priority 1)
 - TushareWeeklyFetcher (Priority 2)
 - PytdxWeeklyFetcher (Priority 2)
 - YfinanceWeeklyFetcher (Priority 4)
