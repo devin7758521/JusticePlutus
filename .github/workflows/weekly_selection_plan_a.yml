@@ -49,7 +49,7 @@ jobs:
         echo "Checking latest commit..."
         git log -1 --oneline
         echo "Checking BaostockWeeklyFetcher priority..."
-        grep -n "priority = 0" data_provider/weekly_fetcher.py | grep -A2 -B2 "Baostock"
+        grep -A 5 "class BaostockWeeklyFetcher" data_provider/weekly_fetcher.py | grep "priority"
         echo "Code version check completed."
     
     - name: Run Weekly Selection - Plan A
