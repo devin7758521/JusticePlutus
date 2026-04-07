@@ -30,11 +30,13 @@
 - HSCloudFetcher
 - WencaiFetcher
 
-周K线扩展源：
-- EfinanceWeeklyFetcher
-- AkshareWeeklyFetcher
-- TushareWeeklyFetcher
-- BaostockWeeklyFetcher
+周K线扩展源（按优先级）：
+- EfinanceWeeklyFetcher (Priority 0)
+- AkshareWeeklyFetcher (Priority 1)
+- BaostockWeeklyFetcher (Priority 1)
+- TushareWeeklyFetcher (Priority 2)
+- PytdxWeeklyFetcher (Priority 2)
+- YfinanceWeeklyFetcher (Priority 4)
 
 提示：优先级数字越小越优先，同优先级按初始化顺序排列
 """

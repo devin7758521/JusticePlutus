@@ -14,8 +14,9 @@ WeeklyFetcher - 周K线数据获取器（沪深主板专用）
 数据源优先级：
 1. Efinance (优先，数据质量高)
 2. Akshare (备选)
-3. Tushare (备选)
-4. Baostock (备选)
+2. Baostock (备选，免费稳定)
+3. Tushare (备选，需Token)
+4. Yfinance (兜底)
 
 过滤规则：
 - 沪市主板：600xxx, 601xxx, 603xxx
@@ -739,7 +740,7 @@ class BaostockWeeklyFetcher(BaseFetcher):
     """
     
     name = "BaostockWeeklyFetcher"
-    priority = 3
+    priority = 1
     
     def __init__(self):
         self._available = None
