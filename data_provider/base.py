@@ -524,6 +524,10 @@ class DataFetcherManager:
             YfinanceWeeklyFetcher,
         )
         
+        logger.info("=" * 80)
+        logger.info("开始初始化周K线数据源...")
+        logger.info("=" * 80)
+        
         # 创建所有周K线数据源实例
         self._weekly_fetchers = [
             EfinanceWeeklyFetcher(),
@@ -540,6 +544,7 @@ class DataFetcherManager:
         # 构建优先级说明
         priority_info = ", ".join([f"{f.name}(P{f.priority})" for f in self._weekly_fetchers])
         logger.info(f"已初始化 {len(self._weekly_fetchers)} 个周K线数据源（按优先级）: {priority_info}")
+        logger.info("=" * 80)
     
     def add_fetcher(self, fetcher: BaseFetcher) -> None:
         """添加数据源并重新排序"""

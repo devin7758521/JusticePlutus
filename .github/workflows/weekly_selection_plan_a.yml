@@ -30,16 +30,27 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
     
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        cache: 'pip'
     
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+    
+    - name: Verify code version
+      run: |
+        echo "Checking latest commit..."
+        git log -1 --oneline
+        echo "Checking BaostockWeeklyFetcher priority..."
+        grep -n "priority = 0" data_provider/weekly_fetcher.py | grep -A2 -B2 "Baostock"
+        echo "Code version check completed."
     
     - name: Run Weekly Selection - Plan A
       env:

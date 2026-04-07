@@ -127,9 +127,12 @@ class EfinanceWeeklyFetcher(BaseFetcher):
     
     name = "EfinanceWeeklyFetcher"
     priority = 0
+    version = "v1.0.0"
+    last_updated = "2026-04-08"
     
     def __init__(self):
         self._available = None
+        logger.info(f"[{self.name}] 初始化数据源 | 版本: {self.version} | 更新时间: {self.last_updated} | 优先级: P{self.priority}")
     
     def _check_available(self) -> bool:
         """检查 Efinance 是否可用"""
@@ -321,9 +324,12 @@ class AkshareWeeklyFetcher(BaseFetcher):
     
     name = "AkshareWeeklyFetcher"
     priority = 1
+    version = "v1.0.0"
+    last_updated = "2026-04-08"
     
     def __init__(self):
         self._available = None
+        logger.info(f"[{self.name}] 初始化数据源 | 版本: {self.version} | 更新时间: {self.last_updated} | 优先级: P{self.priority}")
     
     def _check_available(self) -> bool:
         """检查 Akshare 是否可用"""
@@ -522,11 +528,14 @@ class TushareWeeklyFetcher(BaseFetcher):
     
     name = "TushareWeeklyFetcher"
     priority = 2
+    version = "v1.0.0"
+    last_updated = "2026-04-08"
     
     def __init__(self):
         self._available = None
         self._token = None
         self._api = None
+        logger.info(f"[{self.name}] 初始化数据源 | 版本: {self.version} | 更新时间: {self.last_updated} | 优先级: P{self.priority}")
     
     def _check_available(self) -> bool:
         """检查 Tushare 是否可用"""
@@ -741,10 +750,13 @@ class BaostockWeeklyFetcher(BaseFetcher):
     
     name = "BaostockWeeklyFetcher"
     priority = 0
+    version = "v1.0.1"
+    last_updated = "2026-04-08"
     
     def __init__(self):
         self._available = None
         self._api = None
+        logger.info(f"[{self.name}] 初始化数据源 | 版本: {self.version} | 更新时间: {self.last_updated} | 优先级: P{self.priority}")
     
     def _check_available(self) -> bool:
         """检查 Baostock 是否可用"""
@@ -988,10 +1000,13 @@ class PytdxWeeklyFetcher(BaseFetcher):
     
     name = "PytdxWeeklyFetcher"
     priority = 2
+    version = "v1.0.0"
+    last_updated = "2026-04-08"
     
     def __init__(self):
         self._available = None
         self._api = None
+        logger.info(f"[{self.name}] 初始化数据源 | 版本: {self.version} | 更新时间: {self.last_updated} | 优先级: P{self.priority}")
     
     def _check_available(self) -> bool:
         """检查 Pytdx 是否可用"""
@@ -1114,9 +1129,12 @@ class YfinanceWeeklyFetcher(BaseFetcher):
     
     name = "YfinanceWeeklyFetcher"
     priority = 4
+    version = "v1.0.0"
+    last_updated = "2026-04-08"
     
     def __init__(self):
         self._available = None
+        logger.info(f"[{self.name}] 初始化数据源 | 版本: {self.version} | 更新时间: {self.last_updated} | 优先级: P{self.priority}")
     
     def _check_available(self) -> bool:
         """检查 Yfinance 是否可用"""
