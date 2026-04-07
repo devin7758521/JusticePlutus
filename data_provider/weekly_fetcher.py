@@ -155,24 +155,10 @@ class EfinanceWeeklyFetcher(BaseFetcher):
         
         code = normalize_stock_code(stock_code)
         
-        # 根据股票代码判断市场
-        if code.startswith('6'):
-            market = 'sh'
-            code = f'{code}.SH'
-        elif code.startswith('3') or code.startswith('0'):
-            market = 'sz'
-            code = f'{code}.SZ'
-        elif code.startswith('8') or code.startswith('4'):
-            market = 'bj'
-            code = f'{code}.BJ'
-        else:
-            market = 'sz'
-            code = f'{code}.SZ'
-        
+        # efinance 只接受纯代码，不需要添加后缀
         # 获取周K线数据（前复权）
         df = efinance.stock.get_quote_history(
             code, 
-            market=market,
             period='week',
             adjust='qfq'
         )
@@ -266,21 +252,10 @@ class EfinanceWeeklyFetcher(BaseFetcher):
             try:
                 code = normalize_stock_code(stock_code)
                 
-                # 根据股票代码判断市场
-                if code.startswith('6'):
-                    market = 'sh'
-                    code_with_market = f'{code}.SH'
-                elif code.startswith('3') or code.startswith('0'):
-                    market = 'sz'
-                    code_with_market = f'{code}.SZ'
-                else:
-                    market = 'sz'
-                    code_with_market = f'{code}.SZ'
-                
+                # efinance 只接受纯代码，不需要添加后缀
                 # 获取周K线数据（前复权）
                 df = efinance.stock.get_quote_history(
-                    code_with_market, 
-                    market=market,
+                    code, 
                     period='week',
                     adjust='qfq'
                 )
