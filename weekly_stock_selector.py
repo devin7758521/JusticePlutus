@@ -107,7 +107,8 @@ class WeeklyStockSelector:
         self.step2_result = filtered_stocks
         
         if verbose:
-            print(f"✓ 筛选后剩余 {len(filtered_stocks)} 只股票")
+            pct = len(filtered_stocks) / len(all_stocks) * 100 if len(all_stocks) > 0 else 0
+            print(f"✓ 筛选后剩余 {len(filtered_stocks)} 只股票 ({pct:.1f}%)")
             print(f"  过滤掉 {len(all_stocks) - len(filtered_stocks)} 只股票")
         
         # ====================================================================
@@ -161,9 +162,8 @@ class WeeklyStockSelector:
         if verbose:
             print(f"\n✓ 筛选完成:")
             print(f"  总数: {stats_step4['total']}")
-            print(f"  通过: {stats_step4['passed']}")
+            print(f"  通过: {stats_step4['passed']} ({stats_step4['pass_rate']:.1f}%)")
             print(f"  失败: {stats_step4['failed']}")
-            print(f"  通过率: {stats_step4['pass_rate']:.2f}%")
         
         # ====================================================================
         # 步骤5: 根据价格、成交额和成交量均线筛选
@@ -193,9 +193,8 @@ class WeeklyStockSelector:
         if verbose:
             print(f"\n✓ 筛选完成:")
             print(f"  总数: {stats_step5['total']}")
-            print(f"  通过: {stats_step5['passed']}")
+            print(f"  通过: {stats_step5['passed']} ({stats_step5['pass_rate']:.1f}%)")
             print(f"  失败: {stats_step5['failed']}")
-            print(f"  通过率: {stats_step5['pass_rate']:.2f}%")
             print(f"\n  失败原因:")
             print(f"    不在第四步: {stats_step5['reasons']['not_in_step4']}")
             print(f"    价格不符: {stats_step5['reasons']['price_out_of_range']}")

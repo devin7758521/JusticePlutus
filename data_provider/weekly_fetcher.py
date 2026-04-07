@@ -885,8 +885,10 @@ class BaostockWeeklyFetcher(BaseFetcher):
                     list_date = row.get('ipoDate', '')  # Baostock 的上市日期字段
                     
                     if code:
+                        # 标准化股票代码格式：sh.600519 -> 600519
+                        normalized_code = normalize_stock_code(code)
                         all_stocks.append({
-                            'code': code,
+                            'code': normalized_code,
                             'name': name,
                             'list_date': list_date if list_date else None
                         })
