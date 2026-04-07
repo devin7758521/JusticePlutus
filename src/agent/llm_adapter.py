@@ -8,6 +8,10 @@ def get_thinking_extra_body(model: str) -> Optional[dict]:
     if not model:
         return None
     normalized = model.lower().strip()
+    # DeepSeek Reasoner (R1) - 自动启用thinking模式
+    if normalized.startswith("deepseek-reasoner"):
+        return {"thinking": {"type": "enabled"}}
+    # DeepSeek Chat (V3.1) - 可选thinking模式
     if normalized.startswith("deepseek-chat"):
         return {"thinking": {"type": "enabled"}}
     return None

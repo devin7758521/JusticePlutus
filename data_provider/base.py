@@ -437,6 +437,7 @@ class DataFetcherManager:
         """
         self._fetchers: List[BaseFetcher] = []
         self._ifind_fetcher: Optional[BaseFetcher] = ifind_fetcher
+        self._weekly_fetchers: List[BaseFetcher] = []  # 周K线数据源列表
         
         if fetchers:
             # 按优先级排序
@@ -444,6 +445,8 @@ class DataFetcherManager:
         else:
             # 默认数据源将在首次使用时延迟加载
             self._init_default_fetchers()
+            # 初始化周K线数据源
+            self._init_weekly_fetchers()
     
     def _init_default_fetchers(self) -> None:
         """
@@ -499,6 +502,44 @@ class DataFetcherManager:
         # 构建优先级说明
         priority_info = ", ".join([f"{f.name}(P{f.priority})" for f in self._fetchers])
         logger.info(f"已初始化 {len(self._fetchers)} 个数据源（按优先级）: {priority_info}")
+    
+    def _init_weekly_fetchers(self) -> None:
+        """
+        初始化周K线数据源列表（固定顺序，按优先级）
+        
+        优先级：
+        0. EfinanceWeeklyFetcher - 最高优先级
+        1. AkshareWeeklyFetcher
+        2. TushareWeeklyFetcher
+        2. PytdxWeeklyFetcher
+        3. BaostockWeeklyFetcher
+        4. YfinanceWeeklyFetcher - 兜底数据源
+        """
+        from .weekly_fetcher import (
+            EfinanceWeeklyFetcher,
+            AkshareWeeklyFetcher,
+            TushareWeeklyFetcher,
+            BaostockWeeklyFetcher,
+            PytdxWeeklyFetcher,
+            YfinanceWeeklyFetcher,
+        )
+        
+        # 创建所有周K线数据源实例
+        self._weekly_fetchers = [
+            EfinanceWeeklyFetcher(),
+            AkshareWeeklyFetcher(),
+            TushareWeeklyFetcher(),
+            BaostockWeeklyFetcher(),
+            PytdxWeeklyFetcher(),
+            YfinanceWeeklyFetcher(),
+        ]
+        
+        # 按优先级排序
+        self._weekly_fetchers.sort(key=lambda f: f.priority)
+        
+        # 构建优先级说明
+        priority_info = ", ".join([f"{f.name}(P{f.priority})" for f in self._weekly_fetchers])
+        logger.info(f"已初始化 {len(self._weekly_fetchers)} 个周K线数据源（按优先级）: {priority_info}")
     
     def add_fetcher(self, fetcher: BaseFetcher) -> None:
         """添加数据源并重新排序"""
@@ -1283,3 +1324,555 @@ class DataFetcherManager:
                 logger.warning(f"[{fetcher.name}] 获取板块排行失败: {e}")
                 continue
         return [], []
+    
+    def get_all_stock_list_with_failover(self) -> Tuple[List[Dict[str, Any]], str]:
+        """
+        步骤1: 获取全市场股票列表（包含上市时间）- 自动切换数据源
+        
+        故障切换策略：
+        1. 从最高优先级数据源开始尝试
+        2. 一旦成功获取到股票列表，立即返回，不再尝试后续数据源
+        3. 记录每个数据源的失败原因
+        4. 所有数据源失败后抛出异常
+        
+        Returns:
+            Tuple[List[Dict], str]: (股票列表, 成功的数据源名称)
+            每个股票包含: {'code': 股票代码, 'name': 股票名称, 'list_date': 上市日期}
+            
+        Raises:
+            DataFetchError: 所有数据源都失败时抛出
+        """
+        errors = []
+        total_fetchers = len(self._weekly_fetchers)
+        request_start = time.time()
+        
+        for attempt, fetcher in enumerate(self._weekly_fetchers, start=1):
+            try:
+                logger.info(f"[步骤1-数据源尝试 {attempt}/{total_fetchers}] [{fetcher.name}] 获取全市场股票列表...")
+                
+                if not fetcher._check_available():
+                    logger.debug(f"[{fetcher.name}] 数据源不可用，跳过")
+                    continue
+                
+                stock_list = fetcher.get_all_stock_list()
+                
+                if stock_list:
+                    elapsed = time.time() - request_start
+                    logger.info(
+                        f"[步骤1-数据源完成] 全市场股票列表使用 [{fetcher.name}] 获取成功: "
+                        f"count={len(stock_list)}, elapsed={elapsed:.2f}s"
+                    )
+                    return stock_list, fetcher.name
+                else:
+                    logger.warning(f"[{fetcher.name}] 获取到空列表")
+                    
+            except Exception as e:
+                error_type, error_reason = summarize_exception(e)
+                error_msg = f"[{fetcher.name}] ({error_type}) {error_reason}"
+                logger.warning(
+                    f"[步骤1-数据源失败 {attempt}/{total_fetchers}] [{fetcher.name}] 获取股票列表: "
+                    f"error_type={error_type}, reason={error_reason}"
+                )
+                errors.append(error_msg)
+                continue
+        
+        error_summary = "所有数据源获取全市场股票列表失败:\n" + "\n".join(errors)
+        elapsed = time.time() - request_start
+        logger.error(f"[步骤1-数据源终止] 获取股票列表失败: elapsed={elapsed:.2f}s\n{error_summary}")
+        raise DataFetchError(error_summary)
+    
+    def filter_main_board_stocks(
+        self,
+        all_stocks: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        步骤2: 筛选沪深主板、非ST、上市2年以上的股票
+        
+        筛选条件：
+        1. 沪市主板：600xxx, 601xxx, 603xxx
+        2. 深市主板：000xxx, 001xxx, 002xxx
+        3. 排除：ST/*ST 股票
+        4. 排除：上市不足2年的股票
+        
+        Args:
+            all_stocks: 全市场股票列表，每个元素包含 'code', 'name', 'list_date'
+            
+        Returns:
+            List[Dict]: 筛选后的股票列表
+        """
+        from .weekly_fetcher import is_main_board_stock, is_listed_over_2_years
+        
+        logger.info(f"开始筛选股票，原始数量: {len(all_stocks)}")
+        
+        filtered_stocks = []
+        
+        for stock in all_stocks:
+            code = stock.get('code', '')
+            name = stock.get('name', '')
+            list_date = stock.get('list_date')
+            
+            if is_main_board_stock(code, name) and is_listed_over_2_years(list_date):
+                filtered_stocks.append(stock)
+        
+        logger.info(
+            f"筛选完成: 原始={len(all_stocks)}, "
+            f"筛选后={len(filtered_stocks)}, "
+            f"过滤={len(all_stocks) - len(filtered_stocks)}"
+        )
+        
+        return filtered_stocks
+    
+    def get_weekly_data_batch_with_failover(
+        self,
+        stock_codes: List[str],
+        end_date: Optional[str] = None,
+        weeks: int = 104,
+        max_workers: int = 5
+    ) -> Tuple[Dict[str, pd.DataFrame], str]:
+        """
+        步骤3: 多线程并发获取周K线数据（前复权）- 自动切换数据源
+        
+        故障切换策略：
+        1. 从最高优先级数据源开始尝试
+        2. 一旦成功获取到数据，立即返回，不再尝试后续数据源
+        3. 记录每个数据源的失败原因
+        4. 所有数据源失败后抛出异常
+        
+        Args:
+            stock_codes: 股票代码列表
+            end_date: 结束日期，默认今天
+            weeks: 获取周数，默认104周（2年）
+            max_workers: 最大线程数，默认5
+            
+        Returns:
+            Tuple[Dict[str, DataFrame], str]: (股票代码->周K线数据的字典, 成功的数据源名称)
+            
+        Raises:
+            DataFetchError: 所有数据源都失败时抛出
+        """
+        errors = []
+        total_fetchers = len(self._weekly_fetchers)
+        request_start = time.time()
+        
+        for attempt, fetcher in enumerate(self._weekly_fetchers, start=1):
+            try:
+                logger.info(
+                    f"[步骤3-数据源尝试 {attempt}/{total_fetchers}] [{fetcher.name}] "
+                    f"并发获取周K线数据（{max_workers}线程）..."
+                )
+                
+                if not fetcher._check_available():
+                    logger.debug(f"[{fetcher.name}] 数据源不可用，跳过")
+                    continue
+                
+                results = fetcher.fetch_weekly_data_for_stocks(
+                    stock_codes=stock_codes,
+                    end_date=end_date,
+                    weeks=weeks,
+                    max_workers=max_workers
+                )
+                
+                if results:
+                    elapsed = time.time() - request_start
+                    logger.info(
+                        f"[步骤3-数据源完成] 周K线数据使用 [{fetcher.name}] 获取成功: "
+                        f"count={len(results)}/{len(stock_codes)}, elapsed={elapsed:.2f}s"
+                    )
+                    return results, fetcher.name
+                else:
+                    logger.warning(f"[{fetcher.name}] 获取到空结果")
+                    
+            except Exception as e:
+                error_type, error_reason = summarize_exception(e)
+                error_msg = f"[{fetcher.name}] ({error_type}) {error_reason}"
+                logger.warning(
+                    f"[步骤3-数据源失败 {attempt}/{total_fetchers}] [{fetcher.name}] 获取周K线: "
+                    f"error_type={error_type}, reason={error_reason}"
+                )
+                errors.append(error_msg)
+                continue
+        
+        error_summary = "所有数据源获取周K线数据失败:\n" + "\n".join(errors)
+        elapsed = time.time() - request_start
+        logger.error(f"[步骤3-数据源终止] 获取周K线失败: elapsed={elapsed:.2f}s\n{error_summary}")
+        raise DataFetchError(error_summary)
+    
+    def get_main_board_stock_list(self) -> Tuple[List[Dict[str, str]], str]:
+        """
+        获取沪深主板股票列表（自动切换数据源）
+        
+        已废弃，请使用 get_all_stock_list_with_failover() 和 filter_main_board_stocks()
+        
+        Returns:
+            Tuple[List[Dict], str]: (股票列表, 成功的数据源名称)
+            
+        Raises:
+            DataFetchError: 所有数据源都失败时抛出
+        """
+        all_stocks, source = self.get_all_stock_list_with_failover()
+        filtered_stocks = self.filter_main_board_stocks(all_stocks)
+        
+        return filtered_stocks, source
+    
+    def get_weekly_data_batch(
+        self,
+        end_date: Optional[str] = None,
+        weeks: int = 104
+    ) -> Tuple[Dict[str, pd.DataFrame], str]:
+        """
+        批量获取沪深主板股票的周K线数据（自动切换数据源）
+        
+        已废弃，请使用以下三个步骤：
+        1. get_all_stock_list_with_failover()
+        2. filter_main_board_stocks()
+        3. get_weekly_data_batch_with_failover()
+        
+        Args:
+            end_date: 结束日期，默认今天
+            weeks: 获取周数，默认104周（2年）
+            
+        Returns:
+            Tuple[Dict[str, DataFrame], str]: (股票代码->周K线数据的字典, 成功的数据源名称)
+            
+        Raises:
+            DataFetchError: 所有数据源都失败时抛出
+        """
+        all_stocks, _ = self.get_all_stock_list_with_failover()
+        filtered_stocks = self.filter_main_board_stocks(all_stocks)
+        stock_codes = [stock['code'] for stock in filtered_stocks]
+        
+        return self.get_weekly_data_batch_with_failover(
+            stock_codes=stock_codes,
+            end_date=end_date,
+            weeks=weeks,
+            max_workers=5
+        )
+    
+    def filter_stocks_above_ma(
+        self,
+        weekly_data: Dict[str, pd.DataFrame],
+        ma_period: int = 25,
+        min_data_points: int = 30
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        """
+        步骤4: 筛选站上均线的股票
+        
+        筛选条件：
+        1. 有足够的数据点计算均线（至少 min_data_points 周）
+        2. 最新收盘价在均线上方
+        
+        Args:
+            weekly_data: 股票代码->周K线数据的字典
+            ma_period: 均线周期，默认25周
+            min_data_points: 最小数据点数，默认30周
+            
+        Returns:
+            Tuple[List[Dict], Dict]: 
+                - 符合条件的股票列表，每个元素包含 {'code': 代码, 'close': 最新价, 'ma': 均线值, 'pct_above': 高出百分比}
+                - 统计信息 {'total': 总数, 'passed': 通过数, 'failed': 失败数, 'reasons': 失败原因统计}
+        """
+        passed_stocks = []
+        failed_reasons = {
+            'insufficient_data': 0,  # 数据不足
+            'below_ma': 0,  # 股价在均线下方
+        }
+        
+        logger.info(f"开始筛选站上{ma_period}周均线的股票，总数: {len(weekly_data)}")
+        
+        for code, df in weekly_data.items():
+            try:
+                # 检查数据是否足够
+                if df is None or len(df) < min_data_points:
+                    failed_reasons['insufficient_data'] += 1
+                    continue
+                
+                # 确保有收盘价列
+                if 'close' not in df.columns:
+                    logger.warning(f"[{code}] 缺少 'close' 列")
+                    failed_reasons['insufficient_data'] += 1
+                    continue
+                
+                # 计算均线
+                df_sorted = df.sort_values('date')  # 按日期排序
+                df_sorted['ma'] = df_sorted['close'].rolling(window=ma_period, min_periods=ma_period).mean()
+                
+                # 获取最新数据
+                latest = df_sorted.iloc[-1]
+                latest_close = latest['close']
+                latest_ma = latest['ma']
+                
+                # 检查均线是否有效
+                if pd.isna(latest_ma):
+                    failed_reasons['insufficient_data'] += 1
+                    continue
+                
+                # 判断是否站上均线
+                if latest_close > latest_ma:
+                    pct_above = (latest_close - latest_ma) / latest_ma * 100
+                    passed_stocks.append({
+                        'code': code,
+                        'close': latest_close,
+                        'ma': latest_ma,
+                        'pct_above': pct_above,
+                        'data_points': len(df_sorted)
+                    })
+                else:
+                    failed_reasons['below_ma'] += 1
+                    
+            except Exception as e:
+                logger.debug(f"[{code}] 筛选失败: {e}")
+                failed_reasons['insufficient_data'] += 1
+                continue
+        
+        # 按高出均线的百分比排序（降序）
+        passed_stocks.sort(key=lambda x: x['pct_above'], reverse=True)
+        
+        # 统计信息
+        stats = {
+            'total': len(weekly_data),
+            'passed': len(passed_stocks),
+            'failed': len(weekly_data) - len(passed_stocks),
+            'pass_rate': len(passed_stocks) / len(weekly_data) * 100 if weekly_data else 0,
+            'reasons': failed_reasons
+        }
+        
+        logger.info(
+            f"筛选完成: 总数={stats['total']}, 通过={stats['passed']}, "
+            f"失败={stats['failed']}, 通过率={stats['pass_rate']:.2f}%"
+        )
+        logger.info(
+            f"失败原因: 数据不足={failed_reasons['insufficient_data']}, "
+            f"均线下方={failed_reasons['below_ma']}"
+        )
+        
+        return passed_stocks, stats
+    
+    def filter_stocks_by_price_volume(
+        self,
+        weekly_data: Dict[str, pd.DataFrame],
+        passed_from_step4: List[Dict[str, Any]],
+        min_price: float = 3.0,
+        max_price: float = 70.0,
+        min_amount: float = 5e8,  # 5亿元（人民币）
+        volume_ma5_period: int = 5,
+        volume_ma60_period: int = 60,
+        min_deviation: float = -3.0,
+        max_deviation: float = 7.0,
+        min_data_points: int = 65
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        """
+        步骤5: 根据价格、成交额和成交量均线筛选股票
+        
+        筛选条件：
+        1. 价格在 [min_price, max_price] 区间内（单位：人民币元）
+        2. 最新成交额 >= min_amount（单位：人民币元）
+        3. 5周成交量均线向上（最新值 > 前一周的值）
+        4. 5周成交量均线与60周成交量均线偏离在 [min_deviation%, max_deviation%] 区间内
+        
+        Args:
+            weekly_data: 股票代码->周K线数据的字典
+            passed_from_step4: 第四步筛选通过的股票列表
+            min_price: 最低价格，默认3元（人民币）
+            max_price: 最高价格，默认70元（人民币）
+            min_amount: 最低成交额，默认5亿元（人民币）
+            volume_ma5_period: 成交量均线周期1，默认5周
+            volume_ma60_period: 成交量均线周期2，默认60周
+            min_deviation: 最小偏离度，默认-3%
+            max_deviation: 最大偏离度，默认7%
+            min_data_points: 最小数据点数，默认65周
+            
+        Returns:
+            Tuple[List[Dict], Dict]: 
+                - 符合条件的股票列表
+                - 统计信息
+        """
+        passed_stocks = []
+        failed_reasons = {
+            'not_in_step4': 0,  # 不在第四步结果中
+            'price_out_of_range': 0,  # 价格不在范围内
+            'amount_too_low': 0,  # 成交额不足
+            'insufficient_data': 0,  # 数据不足
+            'volume_ma5_not_rising': 0,  # 5周成交量均线不向上
+            'deviation_out_of_range': 0,  # 偏离度不在范围内
+        }
+        
+        # 创建第四步结果的快速查找字典
+        step4_codes = {stock['code'] for stock in passed_from_step4}
+        
+        logger.info(
+            f"开始步骤5筛选，条件: "
+            f"价格[{min_price}, {max_price}]元, "
+            f"成交额>={min_amount/1e8:.1f}亿元, "
+            f"成交量MA5向上, "
+            f"偏离度[{min_deviation}%, {max_deviation}%]"
+        )
+        logger.info(f"待筛选股票数: {len(weekly_data)}, 第四步通过数: {len(step4_codes)}")
+        
+        for code, df in weekly_data.items():
+            try:
+                # 检查是否在第四步结果中
+                if code not in step4_codes:
+                    failed_reasons['not_in_step4'] += 1
+                    continue
+                
+                # 检查数据是否足够
+                if df is None or len(df) < min_data_points:
+                    failed_reasons['insufficient_data'] += 1
+                    continue
+                
+                # 确保有必要的数据列
+                required_cols = ['close', 'amount', 'volume']
+                if not all(col in df.columns for col in required_cols):
+                    logger.warning(f"[{code}] 缺少必要列")
+                    failed_reasons['insufficient_data'] += 1
+                    continue
+                
+                # 按日期排序
+                df_sorted = df.sort_values('date').copy()
+                
+                # 获取最新数据
+                latest = df_sorted.iloc[-1]
+                latest_close = latest['close']
+                latest_amount = latest['amount']
+                
+                # 条件1: 价格在范围内
+                if not (min_price <= latest_close <= max_price):
+                    failed_reasons['price_out_of_range'] += 1
+                    continue
+                
+                # 条件2: 成交额足够
+                if latest_amount < min_amount:
+                    failed_reasons['amount_too_low'] += 1
+                    continue
+                
+                # 计算成交量均线
+                df_sorted['volume_ma5'] = df_sorted['volume'].rolling(
+                    window=volume_ma5_period, 
+                    min_periods=volume_ma5_period
+                ).mean()
+                
+                df_sorted['volume_ma60'] = df_sorted['volume'].rolling(
+                    window=volume_ma60_period, 
+                    min_periods=volume_ma60_period
+                ).mean()
+                
+                # 获取最新的均线值
+                latest_volume_ma5 = df_sorted.iloc[-1]['volume_ma5']
+                prev_volume_ma5 = df_sorted.iloc[-2]['volume_ma5']
+                latest_volume_ma60 = df_sorted.iloc[-1]['volume_ma60']
+                
+                # 检查均线是否有效
+                if pd.isna(latest_volume_ma5) or pd.isna(prev_volume_ma5) or pd.isna(latest_volume_ma60):
+                    failed_reasons['insufficient_data'] += 1
+                    continue
+                
+                # 条件3: 5日成交量均线向上
+                if latest_volume_ma5 <= prev_volume_ma5:
+                    failed_reasons['volume_ma5_not_rising'] += 1
+                    continue
+                
+                # 条件4: 计算偏离度
+                deviation = (latest_volume_ma5 - latest_volume_ma60) / latest_volume_ma60 * 100
+                
+                if not (min_deviation <= deviation <= max_deviation):
+                    failed_reasons['deviation_out_of_range'] += 1
+                    continue
+                
+                # 所有条件通过
+                passed_stocks.append({
+                    'code': code,
+                    'close': latest_close,
+                    'amount': latest_amount,
+                    'volume_ma5': latest_volume_ma5,
+                    'volume_ma60': latest_volume_ma60,
+                    'deviation': deviation,
+                    'data_points': len(df_sorted)
+                })
+                
+            except Exception as e:
+                logger.debug(f"[{code}] 筛选失败: {e}")
+                failed_reasons['insufficient_data'] += 1
+                continue
+        
+        # 按偏离度排序（从低到高，越接近0越好）
+        passed_stocks.sort(key=lambda x: abs(x['deviation']))
+        
+        # 统计信息
+        stats = {
+            'total': len(weekly_data),
+            'passed': len(passed_stocks),
+            'failed': len(weekly_data) - len(passed_stocks),
+            'pass_rate': len(passed_stocks) / len(weekly_data) * 100 if weekly_data else 0,
+            'reasons': failed_reasons
+        }
+        
+        logger.info(
+            f"筛选完成: 总数={stats['total']}, 通过={stats['passed']}, "
+            f"失败={stats['failed']}, 通过率={stats['pass_rate']:.2f}%"
+        )
+        logger.info(
+            f"失败原因: "
+            f"不在第四步={failed_reasons['not_in_step4']}, "
+            f"价格不符={failed_reasons['price_out_of_range']}, "
+            f"成交额不足={failed_reasons['amount_too_low']}, "
+            f"数据不足={failed_reasons['insufficient_data']}, "
+            f"MA5不向上={failed_reasons['volume_ma5_not_rising']}, "
+            f"偏离度不符={failed_reasons['deviation_out_of_range']}"
+        )
+        
+        return passed_stocks, stats
+    
+    def get_daily_data_batch_with_failover(
+        self,
+        stock_codes: List[str],
+        days: int = 10,
+        max_workers: int = 5
+    ) -> Tuple[Dict[str, pd.DataFrame], str]:
+        """
+        批量获取日K数据（多线程、故障切换）
+        
+        Args:
+            stock_codes: 股票代码列表
+            days: 获取天数，默认10天
+            max_workers: 最大并发线程数，默认5
+            
+        Returns:
+            Tuple[Dict[str, DataFrame], str]: 
+                - 股票代码->日K数据的字典
+                - 成功的数据源名称
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        
+        daily_data = {}
+        successful_source = None
+        
+        logger.info(f"开始批量获取日K数据，共 {len(stock_codes)} 只股票，{days} 天数据")
+        
+        # 使用线程池并发获取
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # 提交所有任务
+            future_to_code = {
+                executor.submit(
+                    self.get_daily_data,
+                    code,
+                    None,
+                    None,
+                    days
+                ): code for code in stock_codes
+            }
+            
+            # 收集结果
+            for future in as_completed(future_to_code):
+                code = future_to_code[future]
+                try:
+                    df, source = future.result()
+                    if df is not None and not df.empty:
+                        daily_data[code] = df
+                        if successful_source is None:
+                            successful_source = source
+                except Exception as e:
+                    logger.debug(f"[{code}] 获取日K数据失败: {e}")
+        
+        logger.info(f"批量获取日K数据完成: 成功 {len(daily_data)}/{len(stock_codes)}")
+        
+        return daily_data, successful_source
