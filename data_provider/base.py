@@ -77,6 +77,7 @@ def normalize_stock_code(stock_code: str) -> str:
     - 'SZ000001'    -> '000001'   (strip SZ prefix)
     - 'BJ920748'    -> '920748'   (strip BJ prefix, BSE)
     - 'sh600519'    -> '600519'   (case-insensitive)
+    - 'sh.600519'   -> '600519'   (Baostock format: exchange.code)
     - '600519.SH'   -> '600519'   (strip .SH suffix)
     - '000001.SZ'   -> '000001'   (strip .SZ suffix)
     - '920748.BJ'   -> '920748'   (strip .BJ suffix, BSE)
@@ -88,6 +89,19 @@ def normalize_stock_code(stock_code: str) -> str:
     """
     code = stock_code.strip()
     upper = code.upper()
+
+    # Handle Baostock format: sh.600519, sz.000001, bj.430047
+    if '.' in code:
+        parts = code.split('.', 1)
+        if len(parts) == 2:
+            prefix, stock_num = parts
+            prefix_upper = prefix.upper()
+            # Baostock format: exchange.code (e.g., sh.600519)
+            if prefix_upper in ('SH', 'SZ', 'BJ') and stock_num.isdigit():
+                return stock_num
+            # Standard suffix format: code.exchange (e.g., 600519.SH)
+            if stock_num.upper() in ('SH', 'SZ', 'SS', 'BJ') and prefix.isdigit():
+                return prefix
 
     # Strip SH/SZ prefix (e.g. SH600519 -> 600519)
     if upper.startswith(('SH', 'SZ')) and not upper.startswith('SH.') and not upper.startswith('SZ.'):
@@ -101,12 +115,6 @@ def normalize_stock_code(stock_code: str) -> str:
         candidate = code[2:]
         if candidate.isdigit() and len(candidate) == 6:
             return candidate
-
-    # Strip .SH/.SZ/.BJ suffix (e.g. 600519.SH -> 600519, 920748.BJ -> 920748)
-    if '.' in code:
-        base, suffix = code.rsplit('.', 1)
-        if suffix.upper() in ('SH', 'SZ', 'SS', 'BJ') and base.isdigit():
-            return base
 
     return code
 
