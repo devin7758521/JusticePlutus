@@ -83,6 +83,8 @@ jobs:
         WECHAT_WORK_WEBHOOK: ${{ secrets.WECHAT_WORK_WEBHOOK }}
         # LLM模型配置
         LITELLM_MODEL: deepseek/deepseek-reasoner
+        # 禁用Python字节码缓存（专业做法）
+        PYTHONDONTWRITEBYTECODE: 1
       run: |
         # 强制清除所有Python字节码缓存
         find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
@@ -92,6 +94,9 @@ jobs:
         python -c "
         import sys
         import importlib
+        
+        # 禁用字节码写入（双重保险）
+        sys.dont_write_bytecode = True
         
         # 强制重新加载所有模块
         for module_name in list(sys.modules.keys()):
