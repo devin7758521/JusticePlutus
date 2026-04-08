@@ -733,7 +733,7 @@ class BaostockWeeklyFetcher(BaseFetcher):
     """
     
     name = "BaostockWeeklyFetcher"
-    priority = 0
+    priority = -1  # 提高优先级，优先于Efinance
     version = "v1.0.1"
     last_updated = "2026-04-08"
     
