@@ -231,7 +231,8 @@ class EfinanceWeeklyFetcher(BaseFetcher):
         stock_codes: List[str],
         end_date: str = None,
         weeks: int = 104,
-        max_workers: int = 3
+        max_workers: int = 3,
+        request_delay: float = 0.1
     ) -> Dict[str, pd.DataFrame]:
         """
         多线程并发获取多只股票的周K线数据
@@ -241,6 +242,7 @@ class EfinanceWeeklyFetcher(BaseFetcher):
             end_date: 结束日期
             weeks: 获取周数
             max_workers: 最大线程数
+            request_delay: 请求间隔（秒），用于避免API限流
             
         Returns:
             字典，键为股票代码，值为 DataFrame
@@ -252,17 +254,17 @@ class EfinanceWeeklyFetcher(BaseFetcher):
         
         start_date = (datetime.now() - timedelta(weeks=weeks)).strftime('%Y-%m-%d')
         
-        logger.info(f"开始并发获取 {len(stock_codes)} 只股票的周K线数据（{max_workers}线程）")
+        logger.info(f"开始并发获取 {len(stock_codes)} 只股票的周K线数据（{max_workers}线程，间隔{request_delay}秒）")
         
         results = {}
         
         def fetch_single_stock(stock_code: str) -> Tuple[str, Optional[pd.DataFrame]]:
             """获取单只股票的周K线数据"""
             try:
+                time.sleep(request_delay)
+                
                 code = normalize_stock_code(stock_code)
                 
-                # efinance 只接受纯代码，不需要添加后缀
-                # 获取周K线数据（前复权）
                 df = efinance.stock.get_quote_history(
                     code, 
                     period='week',
@@ -891,7 +893,7 @@ class BaostockWeeklyFetcher(BaseFetcher):
         stock_codes: List[str],
         end_date: str = None,
         weeks: int = 104,
-        max_workers: int = 5
+        max_workers: int = 3
     ) -> Dict[str, pd.DataFrame]:
         """
         多线程并发获取多只股票的周K线数据
@@ -1091,7 +1093,7 @@ class PytdxWeeklyFetcher(BaseFetcher):
         stock_codes: List[str],
         end_date: str = None,
         weeks: int = 104,
-        max_workers: int = 5
+        max_workers: int = 3
     ) -> Dict[str, pd.DataFrame]:
         """
         多线程并发获取多只股票的周K线数据
