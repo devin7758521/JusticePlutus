@@ -84,7 +84,20 @@ jobs:
         # LLM模型配置
         LITELLM_MODEL: deepseek/deepseek-reasoner
       run: |
+        # 强制清除所有Python字节码缓存
+        find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+        find . -type f -name "*.pyc" -delete 2>/dev/null || true
+        find . -type f -name "*.pyo" -delete 2>/dev/null || true
+        
         python -c "
+        import sys
+        import importlib
+        
+        # 强制重新加载所有模块
+        for module_name in list(sys.modules.keys()):
+            if 'data_provider' in module_name or 'weekly' in module_name:
+                del sys.modules[module_name]
+        
         from weekly_stock_selector_plan_a import WeeklyStockSelectorPlanA
         import logging
         
