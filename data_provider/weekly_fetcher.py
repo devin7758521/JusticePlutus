@@ -932,6 +932,8 @@ class BaostockWeeklyFetcher(BaseFetcher):
             
             try:
                 completed = 0
+                consecutive_failures = 0
+                max_consecutive_failures = 10
                 batch_size = 100
                 total_batches = (len(stock_codes) + batch_size - 1) // batch_size
                 
@@ -961,11 +963,13 @@ class BaostockWeeklyFetcher(BaseFetcher):
                                 start_date=start_date,
                                 end_date=end_date,
                                 frequency="w",
-                                adjustflag="2"
+                                adjustflag="2",
+                                fields="date,open,high,low,close,volume,amount"
                             )
                             
                             if rs.error_code != '0':
                                 logger.warning(f"[Baostock] {code} API调用失败: {rs.error_msg}")
+                                consecutive_failures += 1
                                 time.sleep(request_delay)
                                 continue
                             
@@ -985,12 +989,15 @@ class BaostockWeeklyFetcher(BaseFetcher):
                             if df is not None and not df.empty and len(df) >= weeks:
                                 results[code] = df
                                 logger.info(f"[Baostock] {code}: 数据获取成功")
+                                consecutive_failures = 0  # 重置失败计数
                             elif df is not None and not df.empty:
                                 # 数据不足104周，但也记录下来
                                 if completed < 5:
                                     logger.info(f"[Baostock] {code}: 数据不足（{len(df)} < {weeks}），跳过")
+                                consecutive_failures = 0  # 重置失败计数
                             else:
                                 logger.warning(f"[Baostock] {code}: 未获取到数据")
+                                consecutive_failures += 1
                             
                             completed += 1
                             if completed % 100 == 0:
@@ -999,10 +1006,26 @@ class BaostockWeeklyFetcher(BaseFetcher):
                             # 添加请求间隔
                             time.sleep(request_delay)
                             
+                            # 检查连续失败次数
+                            if consecutive_failures >= max_consecutive_failures:
+                                logger.error(f"[Baostock] 连续失败 {max_consecutive_failures} 次，停止尝试")
+                                break
+                                
                         except Exception as e:
+                            consecutive_failures += 1
                             logger.error(f"获取 {stock_code} 周K线数据失败: {e}")
                             time.sleep(request_delay)
+                            
+                            # 检查连续失败次数
+                            if consecutive_failures >= max_consecutive_failures:
+                                logger.error(f"[Baostock] 连续失败 {max_consecutive_failures} 次，停止尝试")
+                                break
                             continue
+                    
+                    # 检查连续失败次数
+                    if consecutive_failures >= max_consecutive_failures:
+                        logger.error(f"[Baostock] 连续失败 {max_consecutive_failures} 次，停止处理批次")
+                        break
                     
                     # 批次间休息
                     if batch_idx < total_batches - 1:
