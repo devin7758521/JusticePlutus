@@ -958,8 +958,16 @@ class BaostockWeeklyFetcher(BaseFetcher):
                             columns=rs.fields
                         )
                         
+                        # 调试日志：显示获取到的数据量
+                        if completed < 5:  # 只显示前5只股票的调试信息
+                            logger.info(f"[Baostock] {code}: 获取到 {len(df) if df is not None else 0} 条记录，需要 >= {weeks} 条")
+                        
                         if df is not None and not df.empty and len(df) >= weeks:
                             results[code] = df
+                        elif df is not None and not df.empty:
+                            # 数据不足104周，但也记录下来
+                            if completed < 5:
+                                logger.info(f"[Baostock] {code}: 数据不足（{len(df)} < {weeks}），跳过")
                         
                         completed += 1
                         if completed % 100 == 0:
