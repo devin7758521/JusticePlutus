@@ -1499,17 +1499,24 @@ class DataFetcherManager:
                         max_workers=max_workers
                     )
                     
+                    # 检查是否成功获取到该股票的数据
                     if stock_result and stock_code in stock_result:
-                        results[stock_code] = stock_result[stock_code]
-                        success_count += 1
-                        stock_success = True
-                        
-                        # 记录主要使用的数据源
-                        if not main_data_source:
-                            main_data_source = fetcher.name
-                        
-                        logger.info(f"    ✅ [{fetcher.name}] 获取 {stock_code} 成功")
-                        break  # 成功获取，停止尝试其他数据源
+                        # 检查数据是否足够
+                        df = stock_result[stock_code]
+                        if df is not None and not df.empty and len(df) >= weeks:
+                            results[stock_code] = df
+                            success_count += 1
+                            stock_success = True
+                            
+                            # 记录主要使用的数据源
+                            if not main_data_source:
+                                main_data_source = fetcher.name
+                            
+                            logger.info(f"    ✅ [{fetcher.name}] 获取 {stock_code} 成功")
+                            break  # 成功获取，停止尝试其他数据源
+                        else:
+                            logger.warning(f"    ⚠️  [{fetcher.name}] 获取 {stock_code} 数据不足，尝试下一个数据源")
+                            continue
                     else:
                         logger.warning(f"    ❌ [{fetcher.name}] 获取 {stock_code} 失败，切换到下一个数据源")
                         continue
