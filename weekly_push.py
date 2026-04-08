@@ -212,6 +212,11 @@ def push_weekly_selection_to_wechat(
                 print("请设置环境变量 WECHAT_WORK_WEBHOOK 或 WECHAT_WEBHOOK_URL")
             return message
         
+        # 确保URL包含协议前缀
+        if not (webhook_url.startswith('http://') or webhook_url.startswith('https://')):
+            webhook_url = 'https://' + webhook_url
+            logger.info(f"已自动添加https://前缀: {webhook_url}")
+        
         # 发送到企业微信
         payload = {
             "msgtype": "text",
@@ -294,6 +299,11 @@ def push_workflow_start(
             if verbose:
                 print("⚠ 企业微信 Webhook 未配置，跳过启动推送")
             return False
+        
+        # 确保URL包含协议前缀
+        if not (webhook_url.startswith('http://') or webhook_url.startswith('https://')):
+            webhook_url = 'https://' + webhook_url
+            logger.info(f"已自动添加https://前缀: {webhook_url}")
         
         payload = {
             "msgtype": "text",
@@ -392,6 +402,11 @@ def push_workflow_complete(
             if verbose:
                 print("⚠ 企业微信 Webhook 未配置，跳过完成推送")
             return False
+        
+        # 确保URL包含协议前缀
+        if not (webhook_url.startswith('http://') or webhook_url.startswith('https://')):
+            webhook_url = 'https://' + webhook_url
+            logger.info(f"已自动添加https://前缀: {webhook_url}")
         
         payload = {
             "msgtype": "text",

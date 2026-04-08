@@ -683,13 +683,18 @@ class WeeklyStockSelectorPlanB(WeeklyStockSelector):
         
         # 推送到企业微信（可选）
         if enable_push and passed_stocks:
-            from weekly_push import push_weekly_selection_to_wechat
-            push_weekly_selection_to_wechat(
-                stocks=passed_stocks,
-                ai_results=ai_results,
-                plan_type="B",
-                verbose=verbose
-            )
+            try:
+                from weekly_push import push_weekly_selection_to_wechat
+                push_weekly_selection_to_wechat(
+                    stocks=passed_stocks,
+                    ai_results=ai_results,
+                    plan_type="B",
+                    verbose=verbose
+                )
+            except Exception as e:
+                logger.error(f"推送选股结果失败: {e}")
+                if verbose:
+                    print(f"⚠ 推送选股结果失败: {e}，继续执行...")
         
         return passed_stocks, ai_results
     

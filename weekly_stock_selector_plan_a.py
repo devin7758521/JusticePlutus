@@ -92,24 +92,29 @@ class WeeklyStockSelectorPlanA(WeeklyStockSelector):
         start_time = time.time()
         error_msg = None
         
-        # 推送启动消息
-        if enable_push:
-            if verbose:
-                print("\n" + "=" * 80)
-                print("准备推送启动消息到企业微信...")
-                print("=" * 80)
-            push_workflow_start(
-                plan_type="A",
-                max_stocks=max_stocks,
-                enable_ai=enable_ai_analysis,
-                enable_news=enable_news_search,
-                verbose=verbose
-            )
-        else:
-            if verbose:
-                print("\n⚠ 推送功能未启用（enable_push=False）")
-        
         try:
+            # 推送启动消息
+            if enable_push:
+                try:
+                    if verbose:
+                        print("\n" + "=" * 80)
+                        print("准备推送启动消息到企业微信...")
+                        print("=" * 80)
+                    push_workflow_start(
+                        plan_type="A",
+                        max_stocks=max_stocks,
+                        enable_ai=enable_ai_analysis,
+                        enable_news=enable_news_search,
+                        verbose=verbose
+                    )
+                except Exception as e:
+                    logger.error(f"推送启动消息失败: {e}")
+                    if verbose:
+                        print(f"⚠ 推送启动消息失败: {e}，继续执行选股流程...")
+            else:
+                if verbose:
+                    print("\n⚠ 推送功能未启用（enable_push=False）")
+            
             # 运行五步流程
             passed_stocks = self.run(
                 max_stocks=max_stocks,
@@ -142,13 +147,18 @@ class WeeklyStockSelectorPlanA(WeeklyStockSelector):
             
             # 推送选股结果到企业微信（可选）
             if enable_push and passed_stocks:
-                from weekly_push import push_weekly_selection_to_wechat
-                push_weekly_selection_to_wechat(
-                    stocks=passed_stocks,
-                    ai_results=ai_results,
-                    plan_type="A",
-                    verbose=verbose
-                )
+                try:
+                    from weekly_push import push_weekly_selection_to_wechat
+                    push_weekly_selection_to_wechat(
+                        stocks=passed_stocks,
+                        ai_results=ai_results,
+                        plan_type="A",
+                        verbose=verbose
+                    )
+                except Exception as e:
+                    logger.error(f"推送选股结果失败: {e}")
+                    if verbose:
+                        print(f"⚠ 推送选股结果失败: {e}")
             
             return passed_stocks, ai_results
             
@@ -159,15 +169,20 @@ class WeeklyStockSelectorPlanA(WeeklyStockSelector):
         finally:
             # 推送完成消息
             if enable_push:
-                elapsed_time = f"{time.time() - start_time:.1f}秒"
-                push_workflow_complete(
-                    plan_type="A",
-                    total_stocks=len(self.weekly_data) if hasattr(self, 'weekly_data') else 0,
-                    passed_stocks=len(passed_stocks) if 'passed_stocks' in locals() else 0,
-                    elapsed_time=elapsed_time,
-                    error=error_msg,
-                    verbose=verbose
-                )
+                try:
+                    elapsed_time = f"{time.time() - start_time:.1f}秒"
+                    push_workflow_complete(
+                        plan_type="A",
+                        total_stocks=len(self.weekly_data) if hasattr(self, 'weekly_data') else 0,
+                        passed_stocks=len(passed_stocks) if 'passed_stocks' in locals() else 0,
+                        elapsed_time=elapsed_time,
+                        error=error_msg,
+                        verbose=verbose
+                    )
+                except Exception as e:
+                    logger.error(f"推送完成消息失败: {e}")
+                    if verbose:
+                        print(f"⚠ 推送完成消息失败: {e}")
     
     def _run_ai_analysis(
         self,

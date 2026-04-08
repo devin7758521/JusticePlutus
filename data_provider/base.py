@@ -1466,6 +1466,11 @@ class DataFetcherManager:
         if end_date is None:
             end_date = datetime.now().strftime('%Y-%m-%d')
         
+        # 确保周K线数据源已初始化
+        if not self._weekly_fetchers:
+            logger.info("周K线数据源未初始化，开始初始化...")
+            self._init_weekly_fetchers()
+        
         results = {}
         total_stocks = len(stock_codes)
         success_count = 0
@@ -1475,7 +1480,7 @@ class DataFetcherManager:
         logger.info(f"[步骤3] 开始获取周K线数据: 股票数={total_stocks}, 结束日期={end_date}, 周数={weeks}")
         
         # 按优先级排序的数据源列表
-        fetchers = self._get_sorted_weekly_fetchers()
+        fetchers = self._weekly_fetchers
         logger.info(f"数据源顺序: {[f.name for f in fetchers]}")
         
         for i, stock_code in enumerate(stock_codes, 1):
