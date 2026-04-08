@@ -893,7 +893,8 @@ class BaostockWeeklyFetcher(BaseFetcher):
         stock_codes: List[str],
         end_date: str = None,
         weeks: int = 104,
-        max_workers: int = 3
+        max_workers: int = 3,
+        request_delay: float = 0.5
     ) -> Dict[str, pd.DataFrame]:
         """
         多线程并发获取多只股票的周K线数据
@@ -905,6 +906,7 @@ class BaostockWeeklyFetcher(BaseFetcher):
             end_date: 结束日期
             weeks: 获取周数
             max_workers: 最大线程数（Baostock 会忽略此参数）
+            request_delay: 请求间隔（秒），用于避免API限流
             
         Returns:
             字典，键为股票代码，值为 DataFrame
@@ -917,7 +919,7 @@ class BaostockWeeklyFetcher(BaseFetcher):
         
         start_date = (datetime.now() - timedelta(weeks=weeks)).strftime('%Y-%m-%d')
         
-        logger.info(f"开始获取 {len(stock_codes)} 只股票的周K线数据（Baostock 不支持多线程，将串行获取）")
+        logger.info(f"开始获取 {len(stock_codes)} 只股票的周K线数据（Baostock 不支持多线程，将串行获取，间隔{request_delay}秒）")
         
         results = {}
         
@@ -930,57 +932,86 @@ class BaostockWeeklyFetcher(BaseFetcher):
             
             try:
                 completed = 0
-                for stock_code in stock_codes:
-                    try:
-                        code = normalize_stock_code(stock_code)
-                        
-                        # 根据股票代码判断市场
-                        if code.startswith('6'):
-                            symbol = f'sh.{code}'
-                        elif code.startswith('3') or code.startswith('0'):
-                            symbol = f'sz.{code}'
-                        else:
-                            symbol = f'sz.{code}'
-                        
-                        # 获取周K线数据
-                        rs = self._api.query_history_k_data_plus(
-                            code=symbol,
-                            start_date=start_date,
-                            end_date=end_date,
-                            frequency="w",
-                            adjustflag="2"
-                        )
-                        
-                        data_list = []
-                        while (rs.error_code == '0') & rs.next():
-                            data_list.append(list(rs.get_row_data()))
-                        
-                        df = pd.DataFrame(
-                            data_list,
-                            columns=rs.fields
-                        )
-                        
-                        # 调试日志：显示获取到的数据量
-                        if completed < 5:  # 只显示前5只股票的调试信息
-                            logger.info(f"[Baostock] {code}: 获取到 {len(df) if df is not None else 0} 条记录，需要 >= {weeks} 条")
-                        
-                        if df is not None and not df.empty and len(df) >= weeks:
-                            results[code] = df
-                        elif df is not None and not df.empty:
-                            # 数据不足104周，但也记录下来
-                            if completed < 5:
-                                logger.info(f"[Baostock] {code}: 数据不足（{len(df)} < {weeks}），跳过")
-                        
-                        completed += 1
-                        if completed % 100 == 0:
-                            logger.info(f"进度: {completed}/{len(stock_codes)} ({len(results)} 成功)")
+                batch_size = 100
+                total_batches = (len(stock_codes) + batch_size - 1) // batch_size
+                
+                for batch_idx in range(total_batches):
+                    start_idx = batch_idx * batch_size
+                    end_idx = min(start_idx + batch_size, len(stock_codes))
+                    batch_codes = stock_codes[start_idx:end_idx]
+                    
+                    logger.info(f"[Baostock] 处理批次 {batch_idx+1}/{total_batches}，股票范围: {start_idx}-{end_idx}")
+                    
+                    for stock_code in batch_codes:
+                        try:
+                            code = normalize_stock_code(stock_code)
                             
-                    except Exception as e:
-                        logger.debug(f"获取 {stock_code} 周K线数据失败: {e}")
-                        continue
+                            # 根据股票代码判断市场
+                            if code.startswith('6'):
+                                symbol = f'sh.{code}'
+                            elif code.startswith('3') or code.startswith('0'):
+                                symbol = f'sz.{code}'
+                            else:
+                                symbol = f'sz.{code}'
+                            
+                            # 获取周K线数据
+                            logger.info(f"[Baostock] 开始获取 {code} 的周K线数据")
+                            rs = self._api.query_history_k_data_plus(
+                                code=symbol,
+                                start_date=start_date,
+                                end_date=end_date,
+                                frequency="w",
+                                adjustflag="2"
+                            )
+                            
+                            if rs.error_code != '0':
+                                logger.warning(f"[Baostock] {code} API调用失败: {rs.error_msg}")
+                                time.sleep(request_delay)
+                                continue
+                            
+                            data_list = []
+                            while (rs.error_code == '0') & rs.next():
+                                data_list.append(list(rs.get_row_data()))
+                            
+                            df = pd.DataFrame(
+                                data_list,
+                                columns=rs.fields
+                            )
+                            
+                            # 调试日志：显示获取到的数据量
+                            if completed < 5:  # 只显示前5只股票的调试信息
+                                logger.info(f"[Baostock] {code}: 获取到 {len(df) if df is not None else 0} 条记录，需要 >= {weeks} 条")
+                            
+                            if df is not None and not df.empty and len(df) >= weeks:
+                                results[code] = df
+                                logger.info(f"[Baostock] {code}: 数据获取成功")
+                            elif df is not None and not df.empty:
+                                # 数据不足104周，但也记录下来
+                                if completed < 5:
+                                    logger.info(f"[Baostock] {code}: 数据不足（{len(df)} < {weeks}），跳过")
+                            else:
+                                logger.warning(f"[Baostock] {code}: 未获取到数据")
+                            
+                            completed += 1
+                            if completed % 100 == 0:
+                                logger.info(f"进度: {completed}/{len(stock_codes)} ({len(results)} 成功)")
+                            
+                            # 添加请求间隔
+                            time.sleep(request_delay)
+                            
+                        except Exception as e:
+                            logger.error(f"获取 {stock_code} 周K线数据失败: {e}")
+                            time.sleep(request_delay)
+                            continue
+                    
+                    # 批次间休息
+                    if batch_idx < total_batches - 1:
+                        logger.info(f"[Baostock] 批次 {batch_idx+1} 完成，休息 3 秒...")
+                        time.sleep(3)
                 
             finally:
                 self._api.logout()
+                logger.info("[Baostock] 登出成功")
                 
         except Exception as e:
             logger.error(f"获取周K线数据失败: {e}")
