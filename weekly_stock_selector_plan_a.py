@@ -86,47 +86,81 @@ class WeeklyStockSelectorPlanA(WeeklyStockSelector):
                 - 通过筛选的股票列表
                 - AI分析结果列表（如果启用）
         """
-        # 运行五步流程
-        passed_stocks = self.run(
-            max_stocks=max_stocks,
-            weeks=weeks,
-            max_workers=max_workers,
-            ma_period=ma_period,
-            min_data_points_step4=min_data_points_step4,
-            min_price=min_price,
-            max_price=max_price,
-            min_amount=min_amount,
-            min_deviation=min_deviation,
-            max_deviation=max_deviation,
-            min_data_points_step5=min_data_points_step5,
-            verbose=verbose
-        )
+        import time
+        from weekly_push import push_workflow_start, push_workflow_complete
         
-        # AI分析和新闻整合（可选）
-        ai_results = []
-        if enable_ai_analysis and passed_stocks:
-            if verbose:
-                print("\n" + "=" * 80)
-                print("步骤6: AI分析和新闻整合")
-                print("=" * 80)
-            
-            ai_results = self._run_ai_analysis(
-                stocks=passed_stocks,
-                enable_news_search=enable_news_search,
-                verbose=verbose
-            )
+        start_time = time.time()
+        error_msg = None
         
-        # 推送到企业微信（可选）
-        if enable_push and passed_stocks:
-            from weekly_push import push_weekly_selection_to_wechat
-            push_weekly_selection_to_wechat(
-                stocks=passed_stocks,
-                ai_results=ai_results,
+        # 推送启动消息
+        if enable_push:
+            push_workflow_start(
                 plan_type="A",
+                max_stocks=max_stocks,
+                enable_ai=enable_ai_analysis,
+                enable_news=enable_news_search,
                 verbose=verbose
             )
         
-        return passed_stocks, ai_results
+        try:
+            # 运行五步流程
+            passed_stocks = self.run(
+                max_stocks=max_stocks,
+                weeks=weeks,
+                max_workers=max_workers,
+                ma_period=ma_period,
+                min_data_points_step4=min_data_points_step4,
+                min_price=min_price,
+                max_price=max_price,
+                min_amount=min_amount,
+                min_deviation=min_deviation,
+                max_deviation=max_deviation,
+                min_data_points_step5=min_data_points_step5,
+                verbose=verbose
+            )
+            
+            # AI分析和新闻整合（可选）
+            ai_results = []
+            if enable_ai_analysis and passed_stocks:
+                if verbose:
+                    print("\n" + "=" * 80)
+                    print("步骤6: AI分析和新闻整合")
+                    print("=" * 80)
+                
+                ai_results = self._run_ai_analysis(
+                    stocks=passed_stocks,
+                    enable_news_search=enable_news_search,
+                    verbose=verbose
+                )
+            
+            # 推送选股结果到企业微信（可选）
+            if enable_push and passed_stocks:
+                from weekly_push import push_weekly_selection_to_wechat
+                push_weekly_selection_to_wechat(
+                    stocks=passed_stocks,
+                    ai_results=ai_results,
+                    plan_type="A",
+                    verbose=verbose
+                )
+            
+            return passed_stocks, ai_results
+            
+        except Exception as e:
+            error_msg = str(e)
+            raise
+            
+        finally:
+            # 推送完成消息
+            if enable_push:
+                elapsed_time = f"{time.time() - start_time:.1f}秒"
+                push_workflow_complete(
+                    plan_type="A",
+                    total_stocks=len(self.weekly_data) if hasattr(self, 'weekly_data') else 0,
+                    passed_stocks=len(passed_stocks) if 'passed_stocks' in locals() else 0,
+                    elapsed_time=elapsed_time,
+                    error=error_msg,
+                    verbose=verbose
+                )
     
     def _run_ai_analysis(
         self,

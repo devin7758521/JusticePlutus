@@ -214,8 +214,8 @@ def push_weekly_selection_to_wechat(
         
         # 发送到企业微信
         payload = {
-            "msgtype": "markdown",
-            "markdown": {
+            "msgtype": "text",
+            "text": {
                 "content": message
             }
         }
@@ -248,6 +248,186 @@ def push_weekly_selection_to_wechat(
             print(f"✗ 推送失败: {e}")
         logger.error(f"推送失败: {e}")
         return ""
+
+
+def push_workflow_start(
+    plan_type: str = "A",
+    max_stocks: int = None,
+    enable_ai: bool = False,
+    enable_news: bool = False,
+    verbose: bool = True
+) -> bool:
+    """
+    推送workflow启动消息到企业微信
+    
+    Args:
+        plan_type: 方案类型（"A" 或 "B"）
+        max_stocks: 最多处理的股票数量
+        enable_ai: 是否启用AI分析
+        enable_news: 是否启用新闻搜索
+        verbose: 是否打印详细信息
+        
+    Returns:
+        是否推送成功
+    """
+    try:
+        from datetime import datetime
+        
+        plan_name = "稳健型" if plan_type == "A" else "激进型"
+        
+        message = f"""🚀 周K选股Workflow启动
+
+方案类型：{plan_name}（方案{plan_type}）
+启动时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+运行参数：
+- 最大股票数：{max_stocks if max_stocks else '全部'}
+- AI分析：{'✅ 启用' if enable_ai else '❌ 禁用'}
+- 新闻搜索：{'✅ 启用' if enable_news else '❌ 禁用'}
+
+⏳ 正在运行选股流程，请稍候...
+"""
+        
+        webhook_url = os.getenv('WECHAT_WORK_WEBHOOK') or os.getenv('WECHAT_WEBHOOK_URL')
+        
+        if not webhook_url:
+            if verbose:
+                print("⚠ 企业微信 Webhook 未配置，跳过启动推送")
+            return False
+        
+        payload = {
+            "msgtype": "text",
+            "text": {
+                "content": message
+            }
+        }
+        
+        response = requests.post(
+            webhook_url,
+            json=payload,
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('errcode') == 0:
+                if verbose:
+                    print("✓ 启动消息已推送到企业微信")
+                return True
+            else:
+                if verbose:
+                    print(f"✗ 启动推送失败: {result.get('errmsg', '未知错误')}")
+                logger.error(f"启动推送失败: {result}")
+        else:
+            if verbose:
+                print(f"✗ 启动推送失败: HTTP {response.status_code}")
+            logger.error(f"启动推送失败: HTTP {response.status_code}")
+        
+        return False
+        
+    except Exception as e:
+        if verbose:
+            print(f"✗ 启动推送失败: {e}")
+        logger.error(f"启动推送失败: {e}")
+        return False
+
+
+def push_workflow_complete(
+    plan_type: str = "A",
+    total_stocks: int = 0,
+    passed_stocks: int = 0,
+    elapsed_time: str = "",
+    error: str = None,
+    verbose: bool = True
+) -> bool:
+    """
+    推送workflow完成消息到企业微信
+    
+    Args:
+        plan_type: 方案类型（"A" 或 "B"）
+        total_stocks: 总股票数
+        passed_stocks: 通过筛选的股票数
+        elapsed_time: 运行耗时
+        error: 错误信息（如果有）
+        verbose: 是否打印详细信息
+        
+    Returns:
+        是否推送成功
+    """
+    try:
+        from datetime import datetime
+        
+        plan_name = "稳健型" if plan_type == "A" else "激进型"
+        
+        if error:
+            status_emoji = "❌"
+            status_text = "失败"
+        elif passed_stocks > 0:
+            status_emoji = "✅"
+            status_text = "成功"
+        else:
+            status_emoji = "⚠️"
+            status_text = "完成（无股票通过筛选）"
+        
+        message = f"""{status_emoji} 周K选股Workflow{status_text}
+
+方案类型：{plan_name}（方案{plan_type}）
+完成时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+运行结果：
+- 处理股票数：{total_stocks}
+- 通过筛选数：{passed_stocks}
+- 运行耗时：{elapsed_time if elapsed_time else '未知'}
+"""
+        
+        if error:
+            message += f"\n错误信息：\n{error}\n"
+        
+        if passed_stocks > 0:
+            message += "\n📊 详细结果请查看GitHub Actions日志或等待结果推送。"
+        
+        webhook_url = os.getenv('WECHAT_WORK_WEBHOOK') or os.getenv('WECHAT_WEBHOOK_URL')
+        
+        if not webhook_url:
+            if verbose:
+                print("⚠ 企业微信 Webhook 未配置，跳过完成推送")
+            return False
+        
+        payload = {
+            "msgtype": "text",
+            "text": {
+                "content": message
+            }
+        }
+        
+        response = requests.post(
+            webhook_url,
+            json=payload,
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('errcode') == 0:
+                if verbose:
+                    print("✓ 完成消息已推送到企业微信")
+                return True
+            else:
+                if verbose:
+                    print(f"✗ 完成推送失败: {result.get('errmsg', '未知错误')}")
+                logger.error(f"完成推送失败: {result}")
+        else:
+            if verbose:
+                print(f"✗ 完成推送失败: HTTP {response.status_code}")
+            logger.error(f"完成推送失败: HTTP {response.status_code}")
+        
+        return False
+        
+    except Exception as e:
+        if verbose:
+            print(f"✗ 完成推送失败: {e}")
+        logger.error(f"完成推送失败: {e}")
+        return False
 
 
 if __name__ == "__main__":
