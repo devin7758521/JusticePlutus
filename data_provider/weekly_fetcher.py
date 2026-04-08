@@ -173,6 +173,7 @@ class EfinanceWeeklyFetcher(BaseFetcher):
         normalized = df.copy()
         
         column_mapping = {
+            # 英文列名（已标准化）
             'date': 'date',
             'open': 'open',
             'high': 'high',
@@ -181,6 +182,14 @@ class EfinanceWeeklyFetcher(BaseFetcher):
             'volume': 'volume',
             'amount': 'amount',
             'pct_chg': 'pct_chg',
+            # efinance中文列名
+            '日期': 'date',
+            '开盘': 'open',
+            '收盘': 'close',
+            '最高': 'high',
+            '最低': 'low',
+            '成交量': 'volume',
+            '成交额': 'amount',
             '涨跌幅': 'pct_chg',
         }
         
