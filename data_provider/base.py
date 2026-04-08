@@ -1446,75 +1446,90 @@ class DataFetcherManager:
         步骤3: 多线程并发获取周K线数据（前复权）- 自动切换数据源
         
         故障切换策略：
-        1. 从最高优先级数据源开始尝试
-        2. 一旦成功获取到数据，立即返回，不再尝试后续数据源
-        3. 记录每个数据源的失败原因
-        4. 所有数据源失败后抛出异常
+        1. 对每只股票尝试所有数据源
+        2. 失败一次就换数据源，轮着尝试
+        3. 所有数据源都失败后放弃该股票，继续处理下一只
         
         Args:
             stock_codes: 股票代码列表
             end_date: 结束日期，默认今天
             weeks: 获取周数，默认104周（2年）
-            max_workers: 最大线程数，默认5
+            max_workers: 最大线程数，默认1
             
         Returns:
-            Tuple[Dict[str, DataFrame], str]: (股票代码->周K线数据的字典, 成功的数据源名称)
-            
-        Raises:
-            DataFetchError: 所有数据源都失败时抛出
+            Tuple[Dict[str, DataFrame], str]: (股票代码->周K线数据的字典, 主要使用的数据源名称)
         """
-        errors = []
-        total_fetchers = len(self._weekly_fetchers)
-        request_start = time.time()
+        if not stock_codes:
+            logger.warning("股票代码列表为空")
+            return {}, ""
         
-        for attempt, fetcher in enumerate(self._weekly_fetchers, start=1):
-            try:
-                logger.info(
-                    f"[步骤3-数据源尝试 {attempt}/{total_fetchers}] [{fetcher.name}] "
-                    f"并发获取周K线数据（{max_workers}线程）..."
-                )
-                
-                if not fetcher._check_available():
-                    logger.debug(f"[{fetcher.name}] 数据源不可用，跳过")
-                    continue
-                
-                results = fetcher.fetch_weekly_data_for_stocks(
-                    stock_codes=stock_codes,
-                    end_date=end_date,
-                    weeks=weeks,
-                    max_workers=max_workers
-                )
-                
-                if results:
-                    # 检查成功率
-                    success_rate = len(results) / len(stock_codes)
-                    if success_rate < 0.5:
-                        logger.warning(f"[{fetcher.name}] 成功率过低 ({success_rate:.2f})，尝试下一个数据源")
+        if end_date is None:
+            end_date = datetime.now().strftime('%Y-%m-%d')
+        
+        results = {}
+        total_stocks = len(stock_codes)
+        success_count = 0
+        main_data_source = ""
+        
+        logger.info("=" * 80)
+        logger.info(f"[步骤3] 开始获取周K线数据: 股票数={total_stocks}, 结束日期={end_date}, 周数={weeks}")
+        
+        # 按优先级排序的数据源列表
+        fetchers = self._get_sorted_weekly_fetchers()
+        logger.info(f"数据源顺序: {[f.name for f in fetchers]}")
+        
+        for i, stock_code in enumerate(stock_codes, 1):
+            logger.info(f"[处理股票 {i}/{total_stocks}] 尝试获取 {stock_code} 的周K线数据")
+            
+            stock_success = False
+            
+            for fetcher_idx, fetcher in enumerate(fetchers, 1):
+                try:
+                    logger.info(f"  [尝试数据源 {fetcher_idx}/{len(fetchers)}] [{fetcher.name}]")
+                    
+                    if not fetcher._check_available():
+                        logger.warning(f"    [{fetcher.name}] 数据源不可用，切换到下一个")
                         continue
                     
-                    elapsed = time.time() - request_start
-                    logger.info(
-                        f"[步骤3-数据源完成] 周K线数据使用 [{fetcher.name}] 获取成功: "
-                        f"count={len(results)}/{len(stock_codes)}, elapsed={elapsed:.2f}s"
+                    # 尝试获取单只股票的数据
+                    stock_result = fetcher.fetch_weekly_data_for_stocks(
+                        stock_codes=[stock_code],
+                        end_date=end_date,
+                        weeks=weeks,
+                        max_workers=max_workers
                     )
-                    return results, fetcher.name
-                else:
-                    logger.warning(f"[{fetcher.name}] 获取到空结果")
                     
-            except Exception as e:
-                error_type, error_reason = summarize_exception(e)
-                error_msg = f"[{fetcher.name}] ({error_type}) {error_reason}"
-                logger.warning(
-                    f"[步骤3-数据源失败 {attempt}/{total_fetchers}] [{fetcher.name}] 获取周K线: "
-                    f"error_type={error_type}, reason={error_reason}"
-                )
-                errors.append(error_msg)
-                continue
+                    if stock_result and stock_code in stock_result:
+                        results[stock_code] = stock_result[stock_code]
+                        success_count += 1
+                        stock_success = True
+                        
+                        # 记录主要使用的数据源
+                        if not main_data_source:
+                            main_data_source = fetcher.name
+                        
+                        logger.info(f"    ✅ [{fetcher.name}] 获取 {stock_code} 成功")
+                        break  # 成功获取，停止尝试其他数据源
+                    else:
+                        logger.warning(f"    ❌ [{fetcher.name}] 获取 {stock_code} 失败，切换到下一个数据源")
+                        continue
+                        
+                except Exception as e:
+                    error_type, error_reason = summarize_exception(e)
+                    logger.warning(f"    ❌ [{fetcher.name}] 获取 {stock_code} 异常: {error_type} - {error_reason}")
+                    continue
+            
+            if not stock_success:
+                logger.warning(f"    ⚠️  所有数据源都无法获取 {stock_code}，放弃该股票")
         
-        error_summary = "所有数据源获取周K线数据失败:\n" + "\n".join(errors)
-        elapsed = time.time() - request_start
-        logger.error(f"[步骤3-数据源终止] 获取周K线失败: elapsed={elapsed:.2f}s\n{error_summary}")
-        raise DataFetchError(error_summary)
+        # 计算成功率
+        if total_stocks > 0:
+            success_rate = success_count / total_stocks
+            logger.info(f"[步骤3-完成] 周K线数据获取完成: 成功={success_count}/{total_stocks} ({success_rate:.2f})")
+        else:
+            logger.info("[步骤3-完成] 周K线数据获取完成: 无股票需要处理")
+        
+        return results, main_data_source
     
     def get_main_board_stock_list(self) -> Tuple[List[Dict[str, str]], str]:
         """
