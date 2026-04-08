@@ -231,7 +231,7 @@ class EfinanceWeeklyFetcher(BaseFetcher):
         stock_codes: List[str],
         end_date: str = None,
         weeks: int = 104,
-        max_workers: int = 5
+        max_workers: int = 3
     ) -> Dict[str, pd.DataFrame]:
         """
         多线程并发获取多只股票的周K线数据
@@ -434,7 +434,7 @@ class AkshareWeeklyFetcher(BaseFetcher):
         stock_codes: List[str],
         end_date: str = None,
         weeks: int = 104,
-        max_workers: int = 5
+        max_workers: int = 3
     ) -> Dict[str, pd.DataFrame]:
         """
         多线程并发获取多只股票的周K线数据
@@ -647,7 +647,7 @@ class TushareWeeklyFetcher(BaseFetcher):
         stock_codes: List[str],
         end_date: str = None,
         weeks: int = 104,
-        max_workers: int = 5
+        max_workers: int = 3
     ) -> Dict[str, pd.DataFrame]:
         """
         多线程并发获取多只股票的周K线数据
@@ -1223,7 +1223,7 @@ class YfinanceWeeklyFetcher(BaseFetcher):
         stock_codes: List[str],
         end_date: str = None,
         weeks: int = 104,
-        max_workers: int = 5
+        max_workers: int = 3
     ) -> Dict[str, pd.DataFrame]:
         """
         多线程并发获取多只股票的周K线数据
