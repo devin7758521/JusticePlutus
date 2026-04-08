@@ -54,15 +54,13 @@ jobs:
         git log -1 --oneline
         echo ""
         echo "=========================================="
-        echo "Checking BaostockWeeklyFetcher source code"
+        echo "CRITICAL: Checking for _get_sorted_weekly_fetchers in base.py"
         echo "=========================================="
+        grep -n "_get_sorted_weekly_fetchers" data_provider/base.py && echo "ERROR: Old method still exists!" || echo "OK: Old method not found (fixed)"
         echo ""
-        echo "File content (lines 730-740):"
-        sed -n '730,740p' data_provider/weekly_fetcher.py
-        echo ""
-        echo "=========================================="
-        echo "Actual priority value:"
-        grep -n "priority = " data_provider/weekly_fetcher.py | grep -B 1 -A 1 "736"
+        echo "Checking get_weekly_data_batch_with_failover method..."
+        grep -n "def get_weekly_data_batch_with_failover" data_provider/base.py
+        grep -n "self._weekly_fetchers" data_provider/base.py | head -5
         echo ""
         echo "Code version check completed."
       continue-on-error: true
