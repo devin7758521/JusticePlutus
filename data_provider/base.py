@@ -1440,7 +1440,7 @@ class DataFetcherManager:
         stock_codes: List[str],
         end_date: Optional[str] = None,
         weeks: int = 104,
-        max_workers: int = 3
+        max_workers: int = 1
     ) -> Tuple[Dict[str, pd.DataFrame], str]:
         """
         步骤3: 多线程并发获取周K线数据（前复权）- 自动切换数据源
@@ -1486,6 +1486,12 @@ class DataFetcherManager:
                 )
                 
                 if results:
+                    # 检查成功率
+                    success_rate = len(results) / len(stock_codes)
+                    if success_rate < 0.5:
+                        logger.warning(f"[{fetcher.name}] 成功率过低 ({success_rate:.2f})，尝试下一个数据源")
+                        continue
+                    
                     elapsed = time.time() - request_start
                     logger.info(
                         f"[步骤3-数据源完成] 周K线数据使用 [{fetcher.name}] 获取成功: "
