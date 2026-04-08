@@ -232,7 +232,7 @@ class EfinanceWeeklyFetcher(BaseFetcher):
         end_date: str = None,
         weeks: int = 104,
         max_workers: int = 3,
-        request_delay: float = 0.1
+        request_delay: float = 0.2
     ) -> Dict[str, pd.DataFrame]:
         """
         多线程并发获取多只股票的周K线数据

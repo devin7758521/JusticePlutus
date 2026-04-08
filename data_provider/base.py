@@ -1558,7 +1558,7 @@ class DataFetcherManager:
             stock_codes=stock_codes,
             end_date=end_date,
             weeks=weeks,
-            max_workers=5
+            max_workers=3
         )
     
     def filter_stocks_above_ma(
@@ -1839,7 +1839,7 @@ class DataFetcherManager:
         self,
         stock_codes: List[str],
         days: int = 10,
-        max_workers: int = 5
+        max_workers: int = 3
     ) -> Tuple[Dict[str, pd.DataFrame], str]:
         """
         批量获取日K数据（多线程、故障切换）
