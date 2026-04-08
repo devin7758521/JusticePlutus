@@ -37,7 +37,8 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-        cache: 'pip'
+        # 暂时禁用缓存，确保使用最新代码
+        # cache: 'pip'
     
     - name: Install dependencies
       run: |
@@ -52,8 +53,11 @@ jobs:
         echo "Checking latest commit..."
         git log -1 --oneline
         echo ""
-        echo "Checking BaostockWeeklyFetcher priority..."
+        echo "Checking BaostockWeeklyFetcher priority in source code..."
         grep -A 2 "class BaostockWeeklyFetcher" data_provider/weekly_fetcher.py | grep "priority" || echo "Priority check completed"
+        echo ""
+        echo "Actual priority value:"
+        grep "priority = " data_provider/weekly_fetcher.py | grep -A 1 "BaostockWeeklyFetcher" || echo "Not found"
         echo ""
         echo "Code version check completed."
       continue-on-error: true
