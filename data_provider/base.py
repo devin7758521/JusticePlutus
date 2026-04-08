@@ -1440,7 +1440,7 @@ class DataFetcherManager:
         stock_codes: List[str],
         end_date: Optional[str] = None,
         weeks: int = 104,
-        max_workers: int = 5
+        max_workers: int = 3
     ) -> Tuple[Dict[str, pd.DataFrame], str]:
         """
         步骤3: 多线程并发获取周K线数据（前复权）- 自动切换数据源
