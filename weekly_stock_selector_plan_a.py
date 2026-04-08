@@ -94,6 +94,10 @@ class WeeklyStockSelectorPlanA(WeeklyStockSelector):
         
         # 推送启动消息
         if enable_push:
+            if verbose:
+                print("\n" + "=" * 80)
+                print("准备推送启动消息到企业微信...")
+                print("=" * 80)
             push_workflow_start(
                 plan_type="A",
                 max_stocks=max_stocks,
@@ -101,6 +105,9 @@ class WeeklyStockSelectorPlanA(WeeklyStockSelector):
                 enable_news=enable_news_search,
                 verbose=verbose
             )
+        else:
+            if verbose:
+                print("\n⚠ 推送功能未启用（enable_push=False）")
         
         try:
             # 运行五步流程
