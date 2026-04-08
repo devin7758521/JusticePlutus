@@ -53,11 +53,16 @@ jobs:
         echo "Checking latest commit..."
         git log -1 --oneline
         echo ""
-        echo "Checking BaostockWeeklyFetcher priority in source code..."
-        grep -A 2 "class BaostockWeeklyFetcher" data_provider/weekly_fetcher.py | grep "priority" || echo "Priority check completed"
+        echo "=========================================="
+        echo "Checking BaostockWeeklyFetcher source code"
+        echo "=========================================="
         echo ""
+        echo "File content (lines 730-740):"
+        sed -n '730,740p' data_provider/weekly_fetcher.py
+        echo ""
+        echo "=========================================="
         echo "Actual priority value:"
-        grep "priority = " data_provider/weekly_fetcher.py | grep -A 1 "BaostockWeeklyFetcher" || echo "Not found"
+        grep -n "priority = " data_provider/weekly_fetcher.py | grep -B 1 -A 1 "736"
         echo ""
         echo "Code version check completed."
       continue-on-error: true
