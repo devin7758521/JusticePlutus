@@ -1508,7 +1508,7 @@ class DataFetcherManager:
                     if stock_result and stock_code in stock_result:
                         # 检查数据是否足够
                         df = stock_result[stock_code]
-                        if df is not None and not df.empty and len(df) >= weeks * 0.9:
+                        if df is not None and not df.empty and len(df) >= weeks - 1:
                             results[stock_code] = df
                             success_count += 1
                             stock_success = True
